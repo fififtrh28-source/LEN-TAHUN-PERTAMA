@@ -1,0 +1,1829 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ocean Nexus 2026 Dashboard</title>
+  <style>
+    :root {
+      --ink: #f7fbff;
+      --soft-ink: #d7e9f8;
+      --muted: #9bb8cc;
+      --deep: #041827;
+      --navy: #052b45;
+      --sky: #8fdcff;
+      --line: rgba(185, 226, 255, 0.34);
+      --line-strong: rgba(213, 239, 255, 0.68);
+      --shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+      color: var(--ink);
+      font-family: var(--sans);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(143, 220, 255, 0.34), transparent 32%),
+        linear-gradient(135deg, #09273b 0%, #075276 52%, #0a2035 100%);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button,
+    a {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .map-backdrop {
+      position: fixed;
+      inset: -20px;
+      z-index: -3;
+      overflow: hidden;
+      background: #0b314c;
+      filter: saturate(1.1) contrast(1.04);
+    }
+
+    .map-backdrop iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      opacity: 0.58;
+      pointer-events: none;
+      transform: scale(1.03);
+      transform-origin: center;
+    }
+
+    .map-backdrop::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(3, 21, 34, 0.82), rgba(3, 21, 34, 0.35) 52%, rgba(3, 21, 34, 0.78)),
+        linear-gradient(180deg, rgba(6, 58, 85, 0.28), rgba(2, 12, 22, 0.72));
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: clamp(18px, 3vw, 38px);
+      background: rgba(4, 19, 31, 0.2);
+    }
+
+    .screen {
+      width: min(1180px, 100%);
+      min-height: min(720px, calc(100vh - 54px));
+      display: none;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      background: rgba(2, 30, 48, 0.42);
+    }
+
+    .screen.active {
+      display: grid;
+      animation: reveal 180ms ease-out;
+    }
+
+    @keyframes reveal {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .screen::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(1, 19, 31, 0.2), rgba(1, 19, 31, 0.42)),
+        linear-gradient(90deg, rgba(5, 45, 71, 0.18), rgba(5, 102, 137, 0.08));
+      pointer-events: none;
+    }
+
+    .screen-content {
+      position: relative;
+      z-index: 1;
+      min-height: 100%;
+      display: grid;
+      grid-template-rows: 72px 1fr auto;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 20px;
+      padding: 0 clamp(22px, 4vw, 42px);
+      color: var(--ink);
+    }
+
+    .brand-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .brand-mark img {
+      width: 38px;
+      height: 38px;
+      flex: 0 0 auto;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.22));
+    }
+
+    .brand-mark strong {
+      font-size: clamp(14px, 2vw, 18px);
+      line-height: 1;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .partner-logos {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding-left: 16px;
+      border-left: 1px solid rgba(190, 231, 255, 0.28);
+    }
+
+    .partner-logo {
+      display: block;
+      width: auto;
+      max-width: 104px;
+      height: 32px;
+      object-fit: contain;
+      background: transparent;
+      filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.2));
+    }
+
+    .partner-logo.is-missing {
+      display: none;
+    }
+
+    .partner-logo.kemdik {
+      max-width: 36px;
+      height: 34px;
+    }
+
+    .partner-logo.len {
+      max-width: 78px;
+      height: 28px;
+    }
+
+    .partner-logo.its {
+      max-width: 104px;
+      height: 32px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: clamp(16px, 3vw, 34px);
+      margin-left: auto;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .nav-links a,
+    .nav-links button {
+      border: 0;
+      padding: 0;
+      color: inherit;
+      text-decoration: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .language {
+      min-height: 32px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid rgba(190, 231, 255, 0.24);
+      border-radius: 999px;
+      padding: 0 10px 0 12px;
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .language:hover {
+      color: #bdeeff;
+      border-color: rgba(190, 231, 255, 0.55);
+      background: rgba(143, 220, 255, 0.12);
+    }
+
+    .language svg {
+      width: 13px;
+      height: 13px;
+      transition: transform 160ms ease;
+    }
+
+    .language-menu.open .language svg {
+      transform: rotate(180deg);
+    }
+
+    .language-menu {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .language-options {
+      position: absolute;
+      top: calc(100% + 12px);
+      right: 0;
+      min-width: 92px;
+      display: none;
+      padding: 8px;
+      border: 1px solid rgba(190, 231, 255, 0.28);
+      border-radius: 8px;
+      background: rgba(3, 31, 50, 0.96);
+      box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(14px);
+      z-index: 20;
+    }
+
+    .language-menu.open .language-options {
+      display: grid;
+      gap: 4px;
+    }
+
+    .language-options button {
+      width: 100%;
+      min-height: 34px;
+      border-radius: 6px;
+      padding: 0 10px;
+      text-align: left;
+    }
+
+    .language-options button:hover,
+    .language-options button.active {
+      color: #052c47;
+      background: linear-gradient(180deg, #bcecff, #7fdcff);
+    }
+
+    .hero-center {
+      align-self: center;
+      justify-self: center;
+      width: min(780px, calc(100% - 42px));
+      text-align: center;
+      padding: 38px 0 46px;
+    }
+
+    .eyebrow {
+      display: inline-grid;
+      gap: 2px;
+      margin: 0 0 18px;
+      color: var(--sky);
+      font-size: clamp(14px, 2vw, 18px);
+      font-weight: 800;
+      line-height: 1.18;
+      letter-spacing: 0;
+      text-shadow: 0 4px 18px rgba(0, 0, 0, 0.42);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1,
+    h2 {
+      font-family: var(--serif);
+      line-height: 1.05;
+      letter-spacing: 0;
+      text-shadow: 0 8px 26px rgba(0, 0, 0, 0.46);
+    }
+
+    h1 {
+      font-size: clamp(44px, 6vw, 78px);
+      font-weight: 800;
+    }
+
+    h1 span {
+      display: block;
+      margin-top: 6px;
+      color: var(--sky);
+      font-size: clamp(52px, 7vw, 90px);
+    }
+
+    h2 {
+      font-size: clamp(34px, 4.5vw, 52px);
+    }
+
+    .hero-center p,
+    .option-title p,
+    .login-copy p {
+      max-width: 720px;
+      margin: 18px auto 0;
+      color: var(--soft-ink);
+      font-size: clamp(15px, 1.8vw, 19px);
+      line-height: 1.55;
+      text-shadow: 0 4px 16px rgba(0, 0, 0, 0.38);
+    }
+
+    .action-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      margin-top: 44px;
+      flex-wrap: wrap;
+    }
+
+    .nav-button,
+    .primary-button,
+    .ghost-button,
+    .card-button {
+      height: 54px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line-strong);
+      padding: 0 28px;
+      color: var(--ink);
+      background: rgba(3, 31, 50, 0.44);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+      cursor: pointer;
+      font-weight: 650;
+      text-decoration: none;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .nav-button:hover,
+    .primary-button:hover,
+    .ghost-button:hover,
+    .card-button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.88);
+      background: rgba(8, 76, 111, 0.62);
+    }
+
+    .primary-button {
+      min-width: 190px;
+      color: #06314b;
+      border-color: rgba(143, 220, 255, 0.9);
+      background: linear-gradient(180deg, #bcecff, #79cfff);
+    }
+
+    .nav-button {
+      min-width: 196px;
+    }
+
+    .nav-button:disabled {
+      opacity: 0.62;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .button-icon {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+
+    .screen-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 clamp(22px, 4vw, 42px) 26px;
+      color: var(--soft-ink);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .dots {
+      display: inline-flex;
+      gap: 11px;
+    }
+
+    /* Penanda langkah (1 Welcome, 2 Login, 3 Menu): tampil di ketiga layar, yang terang = layar sekarang, bisa diklik. */
+    .dots button {
+      position: relative;
+      width: 10px;
+      height: 10px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: rgba(179, 225, 255, 0.54);
+      cursor: pointer;
+    }
+
+    /* Area klik lebih besar dari titiknya supaya mudah ditekan. */
+    .dots button::after {
+      content: "";
+      position: absolute;
+      inset: -5px;
+    }
+
+    .dots button:hover,
+    .dots button.active {
+      background: #bdeeff;
+    }
+
+    /* Posisi yang sama dengan titik di layar Welcome. */
+    .login-left > .dots {
+      position: absolute;
+      left: clamp(22px, 4vw, 42px);
+      bottom: 26px;
+    }
+
+    .option-screen .screen-footer {
+      justify-content: flex-start;
+      gap: 22px;
+    }
+
+    .login-screen {
+      /* Warna panel kiri; dipakai juga oleh gradasi tipis di batas panel supaya sambungannya rata */
+      --login-navy: linear-gradient(180deg, #0a3657 0%, #062c4b 46%, #041f37 100%);
+      grid-template-columns: minmax(320px, 0.86fr) minmax(440px, 1.14fr);
+      background: #f4faff;
+    }
+
+    .login-screen::before {
+      content: none;
+    }
+
+    .login-left {
+      position: relative;
+      z-index: 1;
+      min-height: 100%;
+      display: grid;
+      grid-template-rows: 88px 1fr auto;
+      padding: 0 clamp(26px, 4vw, 48px) 36px;
+      background: var(--login-navy);
+    }
+
+    /* Lintasan kapal sangat samar di belakang tulisan Welcome: garis lintasan AIS per jam yang sama dengan
+       dashboard (hiasan saja, tanpa nama kapal). Memudar di dekat logo, titik langkah, dan batas panel. */
+    .login-left::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background: url("assets/img/login-lintasan.svg") center / cover no-repeat;
+      opacity: 0.22;
+      -webkit-mask-image: linear-gradient(180deg, transparent 5%, #000 21%, #000 86%, transparent 100%), linear-gradient(90deg, #000 0%, #000 62%, transparent 100%);
+      -webkit-mask-composite: source-in;
+      mask-image: linear-gradient(180deg, transparent 5%, #000 21%, #000 86%, transparent 100%), linear-gradient(90deg, #000 0%, #000 62%, transparent 100%);
+      mask-composite: intersect;
+      pointer-events: none;
+    }
+
+    /* Header panel kiri login: tanpa padding ganda supaya logo mitra tetap di dalam panel gelap */
+    .login-left .brand-row {
+      padding: 0;
+      gap: 14px;
+    }
+
+    .login-left .partner-logos {
+      gap: 8px;
+      padding-left: 12px;
+    }
+
+    .login-copy {
+      align-self: center;
+    }
+
+    .login-copy h2 {
+      max-width: 360px;
+      font-size: clamp(38px, 5vw, 54px);
+    }
+
+    .login-copy p {
+      max-width: 340px;
+      margin-left: 0;
+      font-size: 16px;
+    }
+
+    .login-tagline {
+      color: var(--soft-ink);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .login-right {
+      position: relative;
+      z-index: 1;
+      min-height: 100%;
+      display: grid;
+      grid-template-rows: 88px 1fr;
+      color: #062944;
+      background:
+        linear-gradient(180deg, rgba(248, 252, 255, 0.96), rgba(226, 244, 255, 0.98)),
+        rgba(255, 255, 255, 0.96);
+    }
+
+    /* Gradasi tipis di batas panel biru–putih (pengganti garis tegas) */
+    .login-right::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: -1;
+      width: 40px;
+      background:
+        linear-gradient(90deg, rgba(20, 118, 176, 0) 0%, rgba(34, 140, 200, 0.55) 36%, rgba(126, 196, 234, 0.78) 66%, rgba(126, 196, 234, 0) 100%),
+        var(--login-navy);
+      -webkit-mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.95) 12%, rgba(0, 0, 0, 0.78) 30%, rgba(0, 0, 0, 0.5) 52%, rgba(0, 0, 0, 0.22) 74%, rgba(0, 0, 0, 0.06) 90%, transparent 100%);
+      mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.95) 12%, rgba(0, 0, 0, 0.78) 30%, rgba(0, 0, 0, 0.5) 52%, rgba(0, 0, 0, 0.22) 74%, rgba(0, 0, 0, 0.06) 90%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .login-right .brand-row {
+      color: #062944;
+      justify-content: flex-end;
+    }
+
+    .login-card-wrap {
+      display: grid;
+      place-items: center;
+      padding: 26px;
+    }
+
+    .login-card {
+      width: min(480px, 100%);
+      padding: clamp(28px, 4vw, 44px);
+      border: 1px solid rgba(6, 41, 68, 0.14);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: 0 20px 70px rgba(8, 51, 79, 0.16);
+      backdrop-filter: blur(14px);
+    }
+
+    .login-card h2 {
+      color: #062944;
+      font-size: clamp(30px, 3.4vw, 42px);
+      text-align: center;
+      text-shadow: none;
+    }
+
+    .login-card h2 span {
+      display: block;
+      margin-top: 6px;
+      font-size: clamp(36px, 4vw, 48px);
+    }
+
+    .login-card p {
+      margin-top: 14px;
+      color: #33556c;
+      text-align: center;
+      font-size: 15px;
+      line-height: 1.5;
+      text-shadow: none;
+    }
+
+    .field-stack {
+      display: grid;
+      gap: 16px;
+      margin-top: 32px;
+    }
+
+    .field {
+      position: relative;
+    }
+
+    .field svg {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      width: 21px;
+      height: 21px;
+      color: #2b5f83;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .field input {
+      width: 100%;
+      height: 52px;
+      border: 1px solid rgba(31, 85, 119, 0.26);
+      border-radius: 6px;
+      padding: 0 48px;
+      color: #062944;
+      background: rgba(255, 255, 255, 0.88);
+      outline: none;
+    }
+
+    .field input:focus {
+      border-color: #1d86bf;
+      box-shadow: 0 0 0 3px rgba(29, 134, 191, 0.14);
+    }
+
+    .field button {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      width: 32px;
+      height: 32px;
+      border: 0;
+      color: #2b5f83;
+      background: transparent;
+      cursor: pointer;
+      transform: translateY(-50%);
+    }
+
+    .login-submit {
+      width: 100%;
+      height: 52px;
+      margin-top: 28px;
+      border: 0;
+      border-radius: 6px;
+      color: #ffffff;
+      background: linear-gradient(180deg, #075f92, #034e7d);
+      cursor: pointer;
+      font-weight: 800;
+      box-shadow: 0 14px 26px rgba(5, 92, 144, 0.22);
+    }
+
+    .login-status {
+      min-height: 20px;
+      margin-top: 12px;
+      color: #b42318;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .login-status.is-info {
+      color: #2d536b;
+    }
+
+    .login-back {
+      margin-top: 18px;
+      color: #315a72;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .option-screen .screen-content {
+      grid-template-rows: 72px 1fr auto;
+    }
+
+    .option-title {
+      align-self: start;
+      justify-self: center;
+      width: min(920px, calc(100% - 48px));
+      padding-top: 26px;
+      text-align: center;
+    }
+
+    .option-title h2 {
+      font-size: clamp(34px, 4.4vw, 56px);
+    }
+
+    .option-grid {
+      align-self: center;
+      justify-self: center;
+      width: min(680px, calc(100% - 48px));
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+      padding: 28px 0 42px;
+    }
+
+    .option-card {
+      min-height: 150px;
+      display: grid;
+      grid-template-columns: 88px 1fr 52px;
+      align-items: center;
+      gap: 22px;
+      padding: 22px 24px;
+      border: 1px solid rgba(190, 231, 255, 0.44);
+      border-radius: 8px;
+      color: var(--ink);
+      text-align: left;
+      text-decoration: none;
+      background: rgba(2, 44, 68, 0.72);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(12px);
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .option-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(230, 248, 255, 0.95);
+      background: rgba(3, 72, 105, 0.84);
+    }
+
+    .option-card.featured {
+      border-color: rgba(224, 246, 255, 0.9);
+      box-shadow: 0 24px 60px rgba(4, 36, 58, 0.36);
+    }
+
+    .option-icon {
+      width: 74px;
+      height: 74px;
+      color: var(--sky);
+    }
+
+    .option-card h3 {
+      font-family: var(--serif);
+      font-size: clamp(22px, 2.4vw, 30px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .option-card p {
+      max-width: 420px;
+      color: var(--soft-ink);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .option-message {
+      min-height: 22px;
+      margin: -18px auto 20px;
+      color: #bdeeff;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .card-button {
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      padding: 0;
+      border-radius: 50%;
+      color: #052c47;
+      background: linear-gradient(180deg, #bcecff, #7fdcff);
+    }
+
+    .map-screen {
+      background: rgba(3, 28, 45, 0.92);
+    }
+
+    .map-screen .screen-content {
+      grid-template-rows: 64px 1fr auto;
+      background: rgba(3, 20, 33, 0.48);
+    }
+
+    .map-screen .brand-row {
+      height: 64px;
+      background: rgba(1, 22, 36, 0.78);
+      border-bottom: 1px solid rgba(190, 231, 255, 0.2);
+    }
+
+    .map-preview {
+      position: relative;
+      display: grid;
+      min-height: 0;
+      background: #0b314c;
+    }
+
+    .map-preview iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #082f48;
+    }
+
+    .map-overlay-panel {
+      position: relative;
+      z-index: 2;
+      align-self: start;
+      width: min(260px, calc(100% - 28px));
+      margin: 16px;
+      padding: 16px;
+      border: 1px solid rgba(190, 231, 255, 0.24);
+      border-radius: 8px;
+      color: var(--ink);
+      background: rgba(2, 21, 34, 0.82);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24);
+      backdrop-filter: blur(12px);
+    }
+
+    .map-overlay-panel h3 {
+      margin-bottom: 12px;
+      font-size: 15px;
+    }
+
+    .search-box {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 0 10px;
+      border: 1px solid rgba(190, 231, 255, 0.28);
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .layer-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: var(--soft-ink);
+      font-size: 12px;
+    }
+
+    .layer-list li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .layer-list span {
+      width: 15px;
+      height: 15px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 3px;
+      color: #062944;
+      background: #9be5ff;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .coordinate-chip {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      z-index: 2;
+      padding: 12px 16px;
+      border-radius: 6px;
+      color: var(--soft-ink);
+      background: rgba(2, 21, 34, 0.82);
+      box-shadow: 0 14px 38px rgba(0, 0, 0, 0.24);
+      font-size: 12px;
+      backdrop-filter: blur(12px);
+    }
+
+    .map-actions {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 22px;
+      background: rgba(1, 22, 36, 0.78);
+      border-top: 1px solid rgba(190, 231, 255, 0.2);
+    }
+
+    .ghost-button {
+      min-width: 150px;
+      height: 42px;
+      padding: 0 18px;
+    }
+
+    .open-map {
+      color: #052c47;
+      background: linear-gradient(180deg, #bcecff, #7fdcff);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: none;
+      place-items: center;
+      padding: 24px;
+      background: rgba(1, 13, 23, 0.68);
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-backdrop.open {
+      display: grid;
+    }
+
+    .modal-card {
+      width: min(560px, 100%);
+      position: relative;
+      border: 1px solid rgba(190, 231, 255, 0.42);
+      border-radius: 8px;
+      padding: clamp(24px, 4vw, 34px);
+      color: var(--ink);
+      background: rgba(3, 31, 50, 0.96);
+      box-shadow: 0 26px 80px rgba(0, 0, 0, 0.42);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(190, 231, 255, 0.28);
+      border-radius: 50%;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      font-weight: 900;
+    }
+
+    .modal-label {
+      margin-bottom: 10px;
+      color: var(--sky);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .modal-card h2 {
+      max-width: 460px;
+      font-size: clamp(28px, 4vw, 40px);
+    }
+
+    .modal-body {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+      color: var(--soft-ink);
+      font-size: 15px;
+      line-height: 1.58;
+    }
+
+    .modal-body p {
+      color: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      text-shadow: none;
+    }
+
+    .alert-preview-form {
+      display: grid;
+      gap: 12px;
+      margin-top: 2px;
+    }
+
+    .alert-preview-form label {
+      display: grid;
+      gap: 7px;
+      color: var(--soft-ink);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .alert-preview-form input,
+    .alert-preview-form select,
+    .alert-preview-form textarea {
+      width: 100%;
+      border: 1px solid rgba(190, 231, 255, 0.28);
+      border-radius: 6px;
+      padding: 12px 13px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.06);
+      outline: none;
+    }
+
+    .alert-preview-form textarea {
+      min-height: 86px;
+      resize: vertical;
+    }
+
+    .alert-preview-form button {
+      width: fit-content;
+      min-height: 42px;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 18px;
+      color: #052c47;
+      background: linear-gradient(180deg, #bcecff, #7fdcff);
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    @media (max-width: 980px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        align-items: start;
+        padding: 14px;
+      }
+
+      .screen {
+        min-height: calc(100vh - 28px);
+      }
+
+      .brand-row {
+        min-height: 72px;
+        align-items: flex-start;
+        flex-direction: column;
+        justify-content: center;
+        padding-top: 14px;
+        padding-bottom: 14px;
+      }
+
+      .partner-logos {
+        padding-left: 0;
+        border-left: 0;
+      }
+
+      .partner-logo.kemdik {
+        max-width: 30px;
+        height: 30px;
+      }
+
+      .partner-logo.len {
+        max-width: 70px;
+      }
+
+      .partner-logo.its {
+        max-width: 96px;
+      }
+
+      .nav-links {
+        width: 100%;
+        justify-content: space-between;
+        gap: 12px;
+        margin-left: 0;
+        font-size: 12px;
+      }
+
+      .screen-content,
+      .option-screen .screen-content {
+        grid-template-rows: auto 1fr auto;
+      }
+
+      .hero-center {
+        width: calc(100% - 32px);
+      }
+
+      .action-row {
+        gap: 12px;
+        margin-top: 30px;
+      }
+
+      .nav-button,
+      .primary-button {
+        width: min(260px, 100%);
+        min-width: 0;
+      }
+
+      .login-screen {
+        grid-template-columns: 1fr;
+        background: #f4faff;
+      }
+
+      .login-left,
+      .login-right {
+        min-height: auto;
+      }
+
+      .login-left {
+        grid-template-rows: auto 1fr auto;
+        gap: 28px;
+        padding-bottom: 28px;
+      }
+
+      .login-right {
+        grid-template-rows: auto;
+      }
+
+      .login-right::before {
+        right: 0;
+        bottom: auto;
+        width: auto;
+        height: 18px;
+        background: #041f37;
+        -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.6) 45%, transparent 100%);
+        mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.6) 45%, transparent 100%);
+      }
+
+      .login-right .brand-row {
+        display: none;
+      }
+
+      .login-card-wrap {
+        padding: 20px;
+      }
+
+      .option-grid {
+        grid-template-columns: 1fr;
+        gap: 18px;
+      }
+
+      .option-card {
+        min-height: 148px;
+      }
+
+      .map-overlay-panel {
+        width: min(230px, calc(100% - 24px));
+        margin: 12px;
+      }
+
+      .coordinate-chip {
+        right: 12px;
+        bottom: 12px;
+      }
+
+      .map-actions {
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 620px) {
+      h1 {
+        font-size: clamp(38px, 12vw, 52px);
+      }
+
+      h1 span {
+        font-size: clamp(42px, 13vw, 58px);
+      }
+
+      .screen-footer,
+      .map-actions {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .option-card {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        text-align: center;
+      }
+
+      .map-overlay-panel {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="map-backdrop" aria-hidden="true">
+    <iframe src="map-background-preview.html" title="Ocean Nexus vessel point map background"></iframe>
+  </div>
+
+  <div class="app">
+    <section class="screen welcome-screen active" data-screen="0">
+      <div class="screen-content">
+        <header class="brand-row">
+          <a class="brand-mark" href="#" aria-label="Ocean Nexus 2026">
+            <img src="assets/logos/ocean-nexus.png" alt="" width="38" height="38">
+            <strong>OCEAN NEXUS 2026</strong>
+          </a>
+          <div class="partner-logos" aria-label="Partner logos">
+            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember" onerror="this.classList.add('is-missing')">
+          </div>
+          <nav class="nav-links" aria-label="Welcome navigation">
+            <button type="button" data-modal="about" data-i18n="nav.about">About</button>
+            <button type="button" data-modal="support" data-i18n="nav.support">Support</button>
+            <div class="language-menu">
+              <button type="button" class="language" data-language-toggle>
+                <span data-language-current>EN</span>
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="m5 7 5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              </button>
+              <div class="language-options" data-language-options>
+                <button type="button" data-lang="en">EN</button>
+                <button type="button" data-lang="id">IN</button>
+              </div>
+            </div>
+          </nav>
+        </header>
+
+        <main class="hero-center">
+          <p class="eyebrow">
+            <span data-i18n="hero.eyebrow1">AI Powered Maritime</span>
+            <span data-i18n="hero.eyebrow2">Situational Intelligence</span>
+          </p>
+          <h1 data-i18n-html="hero.title">Welcome to <span>Ocean Nexus 2026</span></h1>
+          <p data-i18n="hero.description">AIS-SAR integration and fusion are required to strengthen Maritime Situational Awareness and IUU Fishing detection</p>
+          <div class="action-row">
+            <button class="primary-button" type="button" data-next>
+              <span data-i18n="common.next">Next</span>
+              <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                <path d="m12 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </button>
+          </div>
+        </main>
+
+        <footer class="screen-footer">
+          <div class="dots" role="group" aria-label="Steps">
+            <button type="button" data-dot="0" aria-label="Step 1: Welcome"></button>
+            <button type="button" data-dot="1" aria-label="Step 2: Login"></button>
+            <button type="button" data-dot="2" aria-label="Step 3: Menu"></button>
+          </div>
+        </footer>
+      </div>
+    </section>
+
+    <section class="screen login-screen" data-screen="1">
+      <aside class="login-left">
+        <header class="brand-row">
+          <a class="brand-mark" href="#" aria-label="Ocean Nexus 2026">
+            <img src="assets/logos/ocean-nexus.png" alt="" width="38" height="38">
+            <strong>OCEAN NEXUS 2026</strong>
+          </a>
+          <div class="partner-logos" aria-label="Partner logos">
+            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember" onerror="this.classList.add('is-missing')">
+          </div>
+        </header>
+        <div class="login-copy">
+          <h2 data-i18n="login.sideTitle">Welcome to Ocean Nexus 2026</h2>
+        </div>
+        <div class="dots" role="group" aria-label="Steps">
+          <button type="button" data-dot="0" aria-label="Step 1: Welcome"></button>
+          <button type="button" data-dot="1" aria-label="Step 2: Login"></button>
+          <button type="button" data-dot="2" aria-label="Step 3: Menu"></button>
+        </div>
+      </aside>
+
+      <div class="login-right">
+        <header class="brand-row">
+          <nav class="nav-links" aria-label="Login navigation">
+            <button type="button" data-modal="about" data-i18n="nav.about">About</button>
+            <button type="button" data-modal="support" data-i18n="nav.support">Support</button>
+            <div class="language-menu">
+              <button type="button" class="language" data-language-toggle>
+                <span data-language-current>EN</span>
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="m5 7 5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              </button>
+              <div class="language-options" data-language-options>
+                <button type="button" data-lang="en">EN</button>
+                <button type="button" data-lang="id">IN</button>
+              </div>
+            </div>
+          </nav>
+        </header>
+
+        <main class="login-card-wrap">
+          <form class="login-card" id="login-form">
+            <h2 data-i18n-html="login.title">Login to <span>Ocean Nexus 2026</span></h2>
+            <p data-i18n="login.subtitle">Enter your credentials to continue</p>
+
+            <div class="field-stack">
+              <label class="field" aria-label="Username">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 21a8 8 0 0 0-16 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                  <circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2"></circle>
+                </svg>
+                <input id="username" autocomplete="username" placeholder="Username" data-i18n-placeholder="login.username">
+              </label>
+              <label class="field" aria-label="Password">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"></rect>
+                  <path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                </svg>
+                <input id="password" type="password" autocomplete="current-password" placeholder="Password" data-i18n-placeholder="login.password">
+                <button type="button" id="toggle-password" aria-label="Show password">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="2"></path>
+                    <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"></circle>
+                  </svg>
+                </button>
+              </label>
+            </div>
+
+            <button class="login-submit" type="submit" data-i18n="login.submit">Login</button>
+            <div class="login-status" id="login-status" aria-live="polite"></div>
+            <button class="login-back" type="button" data-prev data-i18n="common.previous">Previous</button>
+          </form>
+        </main>
+      </div>
+    </section>
+
+    <section class="screen option-screen" data-screen="2">
+      <div class="screen-content">
+        <header class="brand-row">
+          <a class="brand-mark" href="#" aria-label="Ocean Nexus 2026">
+            <img src="assets/logos/ocean-nexus.png" alt="" width="38" height="38">
+            <strong>OCEAN NEXUS 2026</strong>
+          </a>
+          <div class="partner-logos" aria-label="Partner logos">
+            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember" onerror="this.classList.add('is-missing')">
+          </div>
+          <nav class="nav-links" aria-label="Option navigation">
+            <button type="button" data-go="0" data-i18n="nav.home">Home</button>
+            <button type="button" data-modal="about" data-i18n="nav.about">About</button>
+            <button type="button" data-modal="support" data-i18n="nav.support">Support</button>
+            <div class="language-menu">
+              <button type="button" class="language" data-language-toggle>
+                <span data-language-current>EN</span>
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="m5 7 5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              </button>
+              <div class="language-options" data-language-options>
+                <button type="button" data-lang="en">EN</button>
+                <button type="button" data-lang="id">IN</button>
+              </div>
+            </div>
+          </nav>
+        </header>
+
+        <main>
+          <div class="option-title">
+            <h2 data-i18n="option.title">Choose Your Path</h2>
+            <p data-i18n="option.subtitle">Select an action to continue inside Ocean Nexus 2026</p>
+          </div>
+
+          <div class="option-grid">
+            <a class="option-card featured" href="dashboard.html">
+              <svg class="option-icon" viewBox="0 0 96 96" aria-hidden="true">
+                <path d="M17 28 38 18l21 10 20-10v50L58 78 37 68 17 78Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"></path>
+                <path d="M38 18v50M59 28v50" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+                <path d="M66 10c-9 0-16 7-16 16 0 12 16 28 16 28s16-16 16-28c0-9-7-16-16-16Z" fill="rgba(127, 220, 255, 0.18)" stroke="currentColor" stroke-width="5"></path>
+                <circle cx="66" cy="26" r="5" fill="currentColor"></circle>
+              </svg>
+              <div>
+                <h3 data-i18n="option.indonesiaTitle">Wilayah Indonesia</h3>
+                <p data-i18n="option.indonesiaBody">Buka peta wilayah Indonesia dengan fokus titik kapal dan indikasi anomali.</p>
+              </div>
+              <span class="card-button" aria-hidden="true">
+                <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                  <path d="m12 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              </span>
+            </a>
+
+            <a class="option-card" href="anomaly-alert.html">
+              <svg class="option-icon" viewBox="0 0 96 96" aria-hidden="true">
+                <path d="M18 58 78 18 68 78 48 62 34 76 36 54Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"></path>
+                <path d="M36 54 78 18" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+              </svg>
+              <div>
+                <h3 data-i18n="option.alertTitle">Kirim Alert</h3>
+                <p data-i18n="option.alertBody">Buka panel pengiriman peringatan untuk anomali kapal yang dipilih.</p>
+              </div>
+              <span class="card-button" aria-hidden="true">
+                <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                  <path d="m12 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              </span>
+            </a>
+
+            <article class="option-card" data-go="0">
+              <svg class="option-icon" viewBox="0 0 96 96" aria-hidden="true">
+                <path d="M20 48h54" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+                <path d="m43 27-21 21 21 21" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M74 25v46" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+              </svg>
+              <div>
+                <h3 data-i18n="option.backTitle">Back to Main Menu</h3>
+                <p data-i18n="option.backBody">Return to the Ocean Nexus 2026 welcome page.</p>
+              </div>
+              <button class="card-button" type="button" aria-label="Back to main menu">
+                <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19 12H5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                  <path d="m12 5-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              </button>
+            </article>
+          </div>
+          <div class="option-message" id="option-message" aria-live="polite"></div>
+        </main>
+
+        <footer class="screen-footer">
+          <div class="dots" role="group" aria-label="Steps">
+            <button type="button" data-dot="0" aria-label="Step 1: Welcome"></button>
+            <button type="button" data-dot="1" aria-label="Step 2: Login"></button>
+            <button type="button" data-dot="2" aria-label="Step 3: Menu"></button>
+          </div>
+          <button class="ghost-button" type="button" data-prev data-i18n="common.previous">Previous</button>
+        </footer>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="modal-backdrop" id="modal-backdrop" aria-hidden="true">
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" type="button" data-close-modal aria-label="Close">X</button>
+      <div class="modal-label" id="modal-label">Ocean Nexus</div>
+      <h2 id="modal-title">Tentang Ocean Nexus</h2>
+      <div class="modal-body" id="modal-body"></div>
+    </section>
+  </div>
+
+  <script>
+    const screens = Array.from(document.querySelectorAll("[data-screen]"));
+    const modal = document.getElementById("modal-backdrop");
+    const modalLabel = document.getElementById("modal-label");
+    const modalTitle = document.getElementById("modal-title");
+    const modalBody = document.getElementById("modal-body");
+    let language = "en";
+    let activeModalType = null;
+    let current = 0;
+    let loggedIn = false; // layar Menu (indeks 2) baru boleh dibuka lewat titik setelah login berhasil
+    // Login diingat selama tab ini terbuka, supaya kembali dari dashboard (index.html#menu) tidak perlu login ulang.
+    try { loggedIn = sessionStorage.getItem("onx-login") === "1"; } catch (error) { /* penyimpanan diblokir: abaikan */ }
+    // F3-S: halaman lain yang butuh login mengarahkan ke sini dengan ?next=/alamat-halaman. Hanya alamat di website
+    // ini sendiri yang diterima (diawali satu "/"), supaya tidak bisa dipakai untuk mengarahkan ke situs lain.
+    const pageParams = new URLSearchParams(location.search);
+    const nextTarget = /^\/(?![\/\\])/.test(pageParams.get("next") || "") ? pageParams.get("next") : "";
+    const signedOut = pageParams.get("keluar") === "1";
+
+    const translations = {
+      en: {
+        "page.title": "Ocean Nexus 2026 Dashboard",
+        "nav.home": "Home",
+        "nav.about": "About",
+        "nav.support": "Support",
+        "hero.eyebrow1": "AI Powered Maritime",
+        "hero.eyebrow2": "Situational Intelligence",
+        "hero.title": "Welcome to <span>Ocean Nexus 2026</span>",
+        "hero.description": "AIS-SAR integration and fusion are required to strengthen Maritime Situational Awareness and IUU Fishing detection",
+        "common.next": "Next",
+        "common.previous": "Previous",
+        "login.sideTitle": "Welcome to Ocean Nexus 2026",
+        "login.title": "Login to <span>Ocean Nexus 2026</span>",
+        "login.subtitle": "Enter your credentials to continue",
+        "login.username": "Username",
+        "login.password": "Password",
+        "login.submit": "Login",
+        "login.required": "Enter username and password first.",
+        "login.invalid": "Username or password is incorrect.",
+        "login.checking": "Checking…",
+        "login.tooMany": "Too many attempts. Wait a few minutes and try again.",
+        "login.unavailable": "Login is not available right now. Try again later.",
+        "login.sessionRequired": "Sign in to open that page. Your session may have ended.",
+        "login.signedOut": "You have signed out.",
+        "option.title": "Choose Your Path",
+        "option.subtitle": "Select an action to continue inside Ocean Nexus 2026",
+        "option.indonesiaTitle": "Indonesian Waters",
+        "option.indonesiaBody": "Open the Indonesian waters map focused on vessel points and anomaly indications.",
+        "option.alertTitle": "Anomaly Alert Center",
+        "option.alertBody": "Review detected vessel anomalies, verify details, and send validated alerts.",
+        "option.backTitle": "Back to Main Menu",
+        "option.backBody": "Return to the Ocean Nexus 2026 welcome page.",
+        "option.alertStatus": "Alert panel opened.",
+      },
+      id: {
+        "page.title": "Ocean Nexus 2026 Dashboard",
+        "nav.home": "Beranda",
+        "nav.about": "Tentang",
+        "nav.support": "Bantuan",
+        "hero.eyebrow1": "Intelijen Situasional Maritim",
+        "hero.eyebrow2": "Berbasis AI",
+        "hero.title": "Selamat Datang di <span>Ocean Nexus 2026</span>",
+        "hero.description": "Integrasi dan fusi AIS-SAR diperlukan untuk memperkuat Maritime Situational Awareness dan deteksi IUU Fishing",
+        "common.next": "Lanjut",
+        "common.previous": "Kembali",
+        "login.sideTitle": "Selamat Datang di Ocean Nexus 2026",
+        "login.title": "Masuk ke <span>Ocean Nexus 2026</span>",
+        "login.subtitle": "Masukkan kredensial untuk melanjutkan",
+        "login.username": "Nama pengguna",
+        "login.password": "Kata sandi",
+        "login.submit": "Masuk",
+        "login.required": "Isi nama pengguna dan kata sandi terlebih dahulu.",
+        "login.invalid": "Nama pengguna atau kata sandi salah.",
+        "login.checking": "Memeriksa…",
+        "login.tooMany": "Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.",
+        "login.unavailable": "Login sedang tidak tersedia. Coba lagi nanti.",
+        "login.sessionRequired": "Silakan login untuk membuka halaman itu. Sesi login mungkin sudah berakhir.",
+        "login.signedOut": "Anda sudah keluar.",
+        "option.title": "Pilih Menu",
+        "option.subtitle": "Pilih aksi berikut untuk melanjutkan di Ocean Nexus 2026",
+        "option.indonesiaTitle": "Wilayah Indonesia",
+        "option.indonesiaBody": "Buka peta wilayah Indonesia dengan fokus titik kapal dan indikasi anomali.",
+        "option.alertTitle": "Anomaly Alert Center",
+        "option.alertBody": "Tinjau anomali kapal terdeteksi, verifikasi detail, dan kirim alert tervalidasi.",
+        "option.backTitle": "Kembali ke Menu Utama",
+        "option.backBody": "Kembali ke halaman awal Ocean Nexus 2026.",
+        "option.alertStatus": "Panel Kirim Alert dibuka.",
+      },
+    };
+
+    const modalContent = {
+      en: {
+        about: {
+          label: "About",
+          title: "About Ocean Nexus 2026",
+          body: `
+            <p>Ocean Nexus 2026 is a maritime situational intelligence interface for Indonesia's waters.</p>
+            <p>It combines AIS, SAR, Kalman trajectory, and AI inference to support Maritime Situational Awareness and IUU Fishing detection.</p>
+          `,
+        },
+        support: {
+          label: "Support",
+          title: "Support Center",
+          body: `
+            <p>Use this area to report map, login, data, or alert issues in Ocean Nexus 2026.</p>
+            <p>Include vessel MMSI, location, time, anomaly type, and a short note so the operator can review it faster.</p>
+          `,
+        },
+        alert: {
+          label: "Alert",
+          title: "Send Alert",
+          body: `
+            <p>This panel prepares vessel anomaly warnings for the operator or monitoring team.</p>
+            <form class="alert-preview-form">
+              <label>Vessel MMSI
+                <input value="525115025" aria-label="Vessel MMSI">
+              </label>
+              <label>Anomaly type
+                <select aria-label="Anomaly type">
+                  <option>Spoofing</option>
+                  <option>Go Dark</option>
+                  <option>Transshipment</option>
+                  <option>YOLO SAR Detection</option>
+                </select>
+              </label>
+              <label>Alert message
+                <textarea aria-label="Alert message">A vessel anomaly indication was detected in Indonesian waters. Please verify.</textarea>
+              </label>
+              <button type="button" data-close-modal>Send Alert</button>
+            </form>
+          `,
+        },
+      },
+      id: {
+        about: {
+          label: "Tentang",
+          title: "Tentang Ocean Nexus 2026",
+          body: `
+            <p>Ocean Nexus 2026 adalah antarmuka intelijen situasional maritim untuk wilayah laut Indonesia.</p>
+            <p>Sistem ini menggabungkan AIS, SAR, Kalman trajectory, dan AI inference untuk memperkuat Maritime Situational Awareness serta deteksi IUU Fishing.</p>
+          `,
+        },
+        support: {
+          label: "Bantuan",
+          title: "Pusat Bantuan",
+          body: `
+            <p>Bagian ini dipakai untuk melaporkan kendala peta, login, data, atau alert pada preview Ocean Nexus.</p>
+            <p>Sertakan MMSI kapal, lokasi, waktu, jenis anomali, dan catatan singkat agar operator lebih cepat melakukan pengecekan.</p>
+          `,
+        },
+        alert: {
+          label: "Alert",
+          title: "Kirim Alert",
+          body: `
+            <p>Panel ini digunakan untuk menyiapkan peringatan anomali kapal kepada operator atau tim monitoring.</p>
+            <form class="alert-preview-form">
+              <label>MMSI kapal
+                <input value="525115025" aria-label="MMSI kapal">
+              </label>
+              <label>Jenis anomali
+                <select aria-label="Jenis anomali">
+                  <option>Spoofing</option>
+                  <option>Go Dark</option>
+                  <option>Transshipment</option>
+                  <option>YOLO SAR Detection</option>
+                </select>
+              </label>
+              <label>Pesan alert
+                <textarea aria-label="Pesan alert">Terdeteksi indikasi anomali kapal pada wilayah Indonesia. Mohon lakukan verifikasi.</textarea>
+              </label>
+              <button type="button" data-close-modal>Kirim Alert</button>
+            </form>
+          `,
+        },
+      },
+    };
+
+    function showScreen(index) {
+      current = Math.max(0, Math.min(index, screens.length - 1));
+      screens.forEach((screen, i) => {
+        screen.classList.toggle("active", i === current);
+      });
+      updateDots();
+    }
+
+    function updateDots() {
+      document.querySelectorAll("[data-dot]").forEach((dot) => {
+        const isCurrent = Number(dot.dataset.dot) === current;
+        dot.classList.toggle("active", isCurrent);
+        if (isCurrent) dot.setAttribute("aria-current", "step");
+        else dot.removeAttribute("aria-current");
+      });
+    }
+
+    function closeLanguageMenus() {
+      document.querySelectorAll(".language-menu.open").forEach((menu) => {
+        menu.classList.remove("open");
+      });
+    }
+
+    function setLanguage(nextLanguage) {
+      language = nextLanguage === "id" ? "id" : "en";
+      document.documentElement.lang = language === "id" ? "id" : "en";
+      document.title = translations[language]["page.title"];
+      document.querySelectorAll("[data-language-current]").forEach((label) => {
+        label.textContent = language === "id" ? "IN" : "EN";
+      });
+      document.querySelectorAll("[data-lang]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.lang === language);
+      });
+      document.querySelectorAll("[data-i18n]").forEach((node) => {
+        node.textContent = translations[language][node.dataset.i18n] || "";
+      });
+      document.querySelectorAll("[data-i18n-html]").forEach((node) => {
+        node.innerHTML = translations[language][node.dataset.i18nHtml] || "";
+      });
+      document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+        node.placeholder = translations[language][node.dataset.i18nPlaceholder] || "";
+      });
+      const optionMessage = document.getElementById("option-message");
+      if (optionMessage.textContent.trim()) {
+        optionMessage.textContent = translations[language]["option.alertStatus"];
+      }
+      const loginStatus = document.getElementById("login-status");
+      if (loginStatus.dataset.messageKey) {
+        loginStatus.textContent = translations[language][loginStatus.dataset.messageKey];
+      }
+      if (modal.classList.contains("open") && activeModalType) {
+        openModal(activeModalType);
+      }
+    }
+
+    function openModal(type) {
+      const content = modalContent[language][type];
+      if (!content) return;
+      activeModalType = type;
+      modalLabel.textContent = content.label;
+      modalTitle.textContent = content.title;
+      modalBody.innerHTML = content.body;
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+      closeLanguageMenus();
+    }
+
+    function closeModal() {
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+      activeModalType = null;
+    }
+
+    document.querySelectorAll("[data-next]").forEach((button) => {
+      button.addEventListener("click", () => showScreen(current + 1));
+    });
+
+    document.querySelectorAll("[data-prev]").forEach((button) => {
+      button.addEventListener("click", () => showScreen(current - 1));
+    });
+
+    // Titik penanda langkah. Sebelum login, titik ketiga membawa ke layar Login (tidak bisa melompati login).
+    document.querySelectorAll("[data-dot]").forEach((dot) => {
+      dot.addEventListener("click", () => {
+        const target = Number(dot.dataset.dot);
+        showScreen(target === 2 && !loggedIn ? 1 : target);
+      });
+    });
+
+    document.querySelectorAll("[data-go]").forEach((button) => {
+      button.addEventListener("click", () => showScreen(Number(button.dataset.go)));
+    });
+
+    document.querySelectorAll("[data-modal]").forEach((button) => {
+      button.addEventListener("click", () => openModal(button.dataset.modal));
+    });
+
+    document.querySelectorAll("[data-language-toggle]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const menu = button.closest(".language-menu");
+        const isOpen = menu.classList.contains("open");
+        closeLanguageMenus();
+        menu.classList.toggle("open", !isOpen);
+      });
+    });
+
+    document.querySelectorAll("[data-lang]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        setLanguage(button.dataset.lang);
+        closeLanguageMenus();
+      });
+    });
+
+    document.addEventListener("click", closeLanguageMenus);
+
+    document.getElementById("toggle-password").addEventListener("click", () => {
+      const password = document.getElementById("password");
+      password.type = password.type === "password" ? "text" : "password";
+    });
+
+    // Nama pengguna dan kata sandi diperiksa di server (api/auth/login.js); kode halaman ini tidak menyimpannya.
+    document.getElementById("login-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const status = document.getElementById("login-status");
+      const submit = event.currentTarget.querySelector(".login-submit");
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      const showStatus = (key) => {
+        status.dataset.messageKey = key;
+        status.textContent = translations[language][key];
+        status.classList.toggle("is-info", key === "login.checking");
+      };
+
+      if (!username || !password) {
+        showStatus("login.required");
+        return;
+      }
+
+      submit.disabled = true;
+      showStatus("login.checking");
+      let response = null;
+      try {
+        response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+      } catch (error) {
+        response = null;
+      } finally {
+        submit.disabled = false;
+      }
+
+      if (!response || !response.ok) {
+        const status401 = response && response.status === 401;
+        const status429 = response && response.status === 429;
+        showStatus(status401 ? "login.invalid" : status429 ? "login.tooMany" : "login.unavailable");
+        return;
+      }
+
+      delete status.dataset.messageKey;
+      status.textContent = "";
+      loggedIn = true;
+      try { sessionStorage.setItem("onx-login", "1"); } catch (error) { /* penyimpanan diblokir: abaikan */ }
+      // Datang dari halaman lain: kembali ke halaman itu (termasuk tanda #, misalnya #temuan=...).
+      if (nextTarget) {
+        location.replace(nextTarget + location.hash);
+        return;
+      }
+      showScreen(2);
+    });
+
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal || event.target.closest("[data-close-modal]")) {
+        closeModal();
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeLanguageMenus();
+        closeModal();
+      }
+    });
+
+    setLanguage("en");
+    updateDots();
+    // Datang dari menu tiga garis di dashboard: langsung ke layar Menu; kalau belum login, ke layar Login.
+    if (location.hash === "#menu") showScreen(loggedIn ? 2 : 1);
+    // F3-S: diarahkan ke sini karena belum login / sesi berakhir, atau baru saja keluar: tampilkan layar Login.
+    if (nextTarget || signedOut) {
+      const loginStatus = document.getElementById("login-status");
+      const key = nextTarget ? "login.sessionRequired" : "login.signedOut";
+      loginStatus.dataset.messageKey = key;
+      loginStatus.textContent = translations[language][key];
+      loginStatus.classList.add("is-info");
+      showScreen(1);
+    }
+  </script>
+</body>
+</html>

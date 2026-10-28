@@ -1,0 +1,113 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+.output
+.vinxi
+.tanstack/**
+.nitro
+*.local
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Wrangler / Cloudflare
+.wrangler/
+.dev.vars
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local generated data, models, and satellite artifacts
+.local-dev/
+Dataset_Test_Enriched/
+Inference/
+KAPAL YG TERDETEKSI/
+RUNYOLO_FINALBISMILLAH/
+new/metadata/
+new/Patch/
+new/Patch_Cal/
+new/Patch_RGB/
+new/Patch_Uint8/
+new/XML/
+
+# Large binary/model artifacts
+*.h5
+# Angka scaler/kalibrator yang disalin dari file H5 (N-1): bagian dari model pihak lain, tidak ikut
+*.preprocessing.json
+*.pt
+*.zip
+*.SAFE
+*.tif
+*.tiff
+*.png
+!public/ITS.png
+!public/OceanNexus.png
+!public/trajectory_examples/
+!public/trajectory_examples/*.png
+*.jpg
+*.jpeg
+*.webp
+*.xlsx
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Local generated appendix temp/trial files
+.tmp_lampiran_docx*/
+Lampiran_Listing_Program_Siap_Tempel.docx
+Lampiran_Listing_Program_Siap_Tempel_Word.docx
+
+# Small deployment-ready public data bundle
+!public/Dataset_Test_Enriched/
+!public/Dataset_Test_Enriched/**
+!public/KAPAL YG TERDETEKSI/
+!public/KAPAL YG TERDETEKSI/**
+!public/hasilyolov12n/
+!public/hasilyolov12n/**
+!public/RUNYOLO_FINALBISMILLAH/
+!public/RUNYOLO_FINALBISMILLAH/**
+!public/new/
+!public/new/**
+
+.vercel/
+
+.vercel
+.env*
+
+# ── Dirapikan untuk upload ke GitHub ─────────────────────────────────────────
+# Contoh isi .env tetap ikut (baris ".env*" di atas ikut mengecualikannya); kunci asli tetap TIDAK ikut.
+!.env.example
+
+# Logo mitra dan logo Ocean Nexus dipakai semua halaman (aturan "*.png" di atas ikut membuangnya).
+!assets/logos/
+!assets/logos/*.png
+
+# Kode + dataset penelitian dari pembuat model H5 (2 GB, karya pihak lain): tidak ikut.
+newcodinggfw_fixbuanget/
+
+# Catatan lampiran pribadi dan rujukan submodule lama (folder Inference tidak ikut).
+Lampiran_Listing_Program*
+.gitmodules
+
+# Dokumen penjelasan revisi audit (bersifat rahasia): jangan ikut ke GitHub publik maupun website.
+Penjelasan*.html
