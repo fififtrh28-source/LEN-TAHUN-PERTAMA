@@ -191,17 +191,22 @@
         return;
       }
 
-      try {
-        map.fitBounds(L.latLngBounds(points), {
-          padding: [26, 26],
-          maxZoom: 5,
-        });
-      } catch {
-        map.setView([-2.5, 117.0], 5);
+      if (points.length === 1) {
+        map.setView(points[0], 5);
+      } else {
+        try {
+          map.fitBounds(L.latLngBounds(points), {
+            padding: [26, 26],
+            maxZoom: 5,
+          });
+        } catch (err) {
+          console.warn("[map-background-preview] fitBounds gagal, memakai tampilan default:", err);
+          map.setView([-2.5, 117.0], 5);
+          }
+        }
       }
-    }
 
-    loadCandidates().catch(() => {
+      loadCandidates().catch(() => {
       plotFallbackPoints();
     });
   </script>
