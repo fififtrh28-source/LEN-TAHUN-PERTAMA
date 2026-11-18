@@ -336,7 +336,9 @@ function finiteLatLon(lat, lon) {
 }
 
 function formatNumber(n, digits) {
-  return Number.isFinite(n) ? n.toFixed(digits).replace(/\.?0+$/, "") : "";
+  if (!Number.isFinite(n)) return "";
+  const s = n.toFixed(digits);
+  return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
 }
 
 function writeOutput(path, content) {
