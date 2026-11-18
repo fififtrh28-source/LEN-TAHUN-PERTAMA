@@ -186,11 +186,12 @@
         points.push([lat, lon]);
       });
 
-      if (!points.length) {
-        plotFallbackPoints();
-        return;
-      }
-
+        if (!points.length) {
+          console.warn("[map-background-preview] Tidak ada titik valid di data kandidat, memakai titik fallback.");
+          plotFallbackPoints();
+          return;
+        }
+        
       if (points.length === 1) {
         map.setView(points[0], 5);
       } else {
@@ -206,9 +207,10 @@
         }
       }
 
-      loadCandidates().catch(() => {
-      plotFallbackPoints();
-    });
+      loadCandidates().catch((err) => {
+        console.warn("[map-background-preview] Gagal memuat data kandidat, memakai titik fallback:", err);
+        plotFallbackPoints();
+      });    
   </script>
 </body>
 </html>
