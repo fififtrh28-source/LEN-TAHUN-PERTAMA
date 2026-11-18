@@ -207,9 +207,8 @@ async function fetchTrack(vesselId, startDate, endDate) {
   url.searchParams.set("start-date", startDate);
   url.searchParams.set("end-date", endDate);
 
-  const res = await fetch(url.toString(), {
+  const res = await fetchWithRetry(url.toString(), {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    signal: AbortSignal.timeout(60_000),
   });
 
   if (res.status === 404) {
@@ -257,7 +256,7 @@ async function fetchEventTrack(vesselId, startDate, endDate) {
   url.searchParams.set("offset", "0");
   url.searchParams.set("sort", "+start");
 
-  const res = await fetch(url.toString(), {
+  const res = await fetchWithRetry(url.toString(), {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -266,9 +265,8 @@ async function fetchEventTrack(vesselId, startDate, endDate) {
       endDate: toIsoDate(endDate),
       vessels: [vesselId],
     }),
-    signal: AbortSignal.timeout(60_000),
   });
-
+  
   if (!res.ok) return { error: `gfw_events_http_${res.status}`, track: [] };
   const json = await res.json();
   const entries = json?.entries ?? [];
@@ -492,4 +490,17 @@ function writeFileAtomic(path, content) {
   const tmpPath = `${path}.tmp`;
   writeFileSync(tmpPath, content, "utf8");
   renameSync(tmpPath, path);
+}
+
+async function fetchWithRetry(url, options, attempts = 4) {
+  for (let attempt = 1; ; attempt += 1) {
+    const res = await fetch(url, { ...options, signal: AbortSignal.timeout(60_000) });
+    if ((res.status === 429 || res.status >= 500) && attempt < attempts) {
+      const retryAfter = Number(res.headers.get("retry-after"));
+      const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** (attempt - 1);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      continue;
+    }
+    return res;
+  }
 }
