@@ -55,9 +55,9 @@ try {
       "--sequence-selection", "residual-window",
     );
   }
-  runNode(join(repoRoot, "scripts", "create-labeled-ais-trajectories.mjs"), stagingArgs);
   stagingCreated = true;
-
+  runNode(join(repoRoot, "scripts", "create-labeled-ais-trajectories.mjs"), stagingArgs);
+  
   const stagingCsv = join(stagingDir, "trajectory_points_raw_vs_kalman.csv");
   const { rows } = parseCsv(readFileSync(stagingCsv, "utf8"));
   const rowsByMmsi = groupBy(rows, (row) => String(row.mmsi ?? "").trim());
