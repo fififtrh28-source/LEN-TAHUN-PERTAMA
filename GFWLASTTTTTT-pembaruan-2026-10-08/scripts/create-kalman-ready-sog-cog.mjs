@@ -20,7 +20,8 @@ try {
   console.error(`Gagal membaca input CSV: ${inputPath} (${err.code ?? err.message})`);
   process.exit(1);
 }
-const { headers, rows } = parseCsv(rawInput);
+const input = rawInput.charCodeAt(0) === 0xFEFF ? rawInput.slice(1) : rawInput;
+const { headers, rows } = parseCsv(input);
 
 const addedColumns = [
   "Sog_for_kalman",
