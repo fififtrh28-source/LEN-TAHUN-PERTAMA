@@ -10,17 +10,21 @@ type CapturedError = { error: unknown; at: number };
 
 const TTL_MS = 5_000;
 const MAX_ENTRIES = 100;
-const UNSCOPED = "tanpa-request-id";
+// T-62: galat tanpa ID permintaan diberi kunci unik (awalan + nomor urut), supaya galat kedua tidak menimpa galat pertama.
+const UNSCOPED_PREFIX = "tanpa-request-id:";
+let unscopedSeq = 0;
 
 const requestContext = new AsyncLocalStorage<string>();
 const capturedErrors = new Map<string, CapturedError>();
 
 function record(error: unknown) {
-  // T-62: galat di luar scope permintaan diberi kunci unik, supaya galat kedua tidak menimpa galat pertama.
-  const requestId = requestContext.getStore() ?? `${UNSCOPED}:${crypto.randomUUID()}`;
+  // K-19: listener global ("error", "unhandledrejection") bisa berjalan di luar scope runWithRequestId,
+  // sehingga getStore() kosong. Galat seperti itu tetap disimpan (dengan kunci unik) dan diambil lewat
+  // consumeCapturedError(requestId, since), lihat di bawah.
+  const key = requestContext.getStore() ?? `${UNSCOPED_PREFIX}${++unscopedSeq}`;
   // Hapus lalu isi lagi supaya kunci ini menjadi yang paling baru (urutan Map = urutan pemakaian).
-  capturedErrors.delete(requestId);
-  capturedErrors.set(requestId, { error, at: Date.now() });
+  capturedErrors.delete(key);
+  capturedErrors.set(key, { error, at: Date.now() });
   while (capturedErrors.size > MAX_ENTRIES) {
     const oldest = capturedErrors.keys().next().value;
     if (oldest === undefined) break;
@@ -40,20 +44,25 @@ export function runWithRequestId<T>(requestId: string, fn: () => T): T {
   return requestContext.run(requestId, fn);
 }
 
-// K-19: listener error/unhandledrejection global bisa berjalan di luar scope runWithRequestId, sehingga galatnya
-// tercatat tanpa ID permintaan. Jika tidak ada galat dengan ID ini, dipakai galat tanpa ID yang paling baru
-// (masih dalam TTL), supaya stack asli tetap bisa ditampilkan di log server.
-function newestUnscopedKey(): string | undefined {
-  let found: string | undefined;
-  for (const key of capturedErrors.keys()) if (key.startsWith(`${UNSCOPED}:`)) found = key;
-  return found;
-}
-
-export function consumeCapturedError(requestId: string): unknown {
-  const key = capturedErrors.has(requestId) ? requestId : newestUnscopedKey();
-  const entry = key === undefined ? undefined : capturedErrors.get(key);
-  if (key === undefined || !entry) return undefined;
-  capturedErrors.delete(key);
-  if (Date.now() - entry.at > TTL_MS) return undefined;
-  return entry.error;
+// Mengambil galat asli untuk permintaan requestId.
+// 1) Galat yang tercatat dengan ID permintaan ini (tercatat di dalam scope runWithRequestId).
+// 2) K-19: jika tidak ada, galat tanpa ID permintaan yang paling baru, yang tercatat sejak permintaan ini dimulai
+//    (since) dan belum lewat TTL. Galat itu diambil sekali saja (dihapus), supaya tidak dipakai permintaan lain.
+export function consumeCapturedError(requestId: string, since?: number): unknown {
+  const now = Date.now();
+  const entry = capturedErrors.get(requestId);
+  if (entry) {
+    capturedErrors.delete(requestId);
+    return now - entry.at > TTL_MS ? undefined : entry.error;
+  }
+  if (since === undefined) return undefined;
+  const unscoped = [...capturedErrors].filter(([key]) => key.startsWith(UNSCOPED_PREFIX));
+  for (let i = unscoped.length - 1; i >= 0; i--) {
+    const [key, item] = unscoped[i];
+    if (item.at >= since && now - item.at <= TTL_MS) {
+      capturedErrors.delete(key);
+      return item.error;
+    }
+  }
+  return undefined;
 }
