@@ -185,10 +185,10 @@ function markNeedsLookup(out, row, reason) {
   lookupRows.push({
     scene: row.scene ?? "",
     scene_timestamp_utc: out.ais_position_scene_timestamp_utc,
-    MMSI: row.MMSI ?? row.gfw_ssvid ?? "",
+    MMSI: value(row.MMSI) || value(row.gfw_ssvid),    
     gfw_vessel_id: row.gfw_vessel_id ?? "",
     gfw_ssvid: row.gfw_ssvid ?? "",
-    Name: row.Name ?? row.gfw_name ?? "",
+    Name: value(row.Name) || value(row.gfw_name),    
     category: row.category ?? "",
     Center_latitude: row.Center_latitude ?? "",
     Center_longitude: row.Center_longitude ?? "",
