@@ -313,13 +313,14 @@ function surroundingPair(track, sceneTime) {
   let before = null;
   let after = null;
   for (const point of track) {
-    if (point.time <= sceneTime) before = point;
-    if (point.time >= sceneTime) {
+    if (point.time < sceneTime) {
+      before = point;
+    } else {
       after = point;
       break;
     }
   }
-  return before && after && before !== after ? { before, after } : null;
+  return before && after ? { before, after } : null;
 }
 
 function loadEnvIfNeeded() {
