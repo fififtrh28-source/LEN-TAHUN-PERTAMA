@@ -224,10 +224,12 @@ function runNode(script, scriptArgs, extraEnv = {}) {
   });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
-  if (result.status !== 0) {
-    const cause = result.error ? `\n${result.error.stack || result.error.message}` : "";
-    throw new Error(`Command failed (${result.status}): node ${script}${cause}`);
+  if (result.error) {
+    throw new Error(`Failed to start process: node ${script}\n${result.error.stack || result.error.message}`);
   }
+  if (result.status !== 0) {
+    throw new Error(`Command failed (exit ${result.status ?? result.signal}): node ${script}`);
+  }  
 }
 
 function renderGallery(records) {
