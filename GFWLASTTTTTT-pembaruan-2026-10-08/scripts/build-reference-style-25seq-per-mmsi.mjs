@@ -313,8 +313,14 @@ function parseCsv(text) {
   const headers = records.shift() ?? [];
   return {
     headers,
-    rows: records.map((cells) =>
-      Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]))),
+    rows: records.map((cells, rowIndex) => {
+      if (cells.length !== headers.length) {
+        throw new Error(
+          `CSV data row ${rowIndex + 1} has ${cells.length} cells, expected ${headers.length}`,
+        );
+      }
+      return Object.fromEntries(headers.map((header, index) => [header, cells[index]]));
+    }),
   };
 }
 
