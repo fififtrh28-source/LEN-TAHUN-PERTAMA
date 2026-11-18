@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -202,7 +202,7 @@ try {
     const resolvedStaging = resolve(stagingDir);
     const resolvedInput = resolve(inputDir);
     const safeName = basename(resolvedStaging).endsWith(".staging");
-    const insideInput = resolvedStaging.startsWith(`${resolvedInput}\\`);
+    const insideInput = resolvedStaging.startsWith(`${resolvedInput}${sep}`);    
     if (!safeName || !insideInput) {
       throw new Error(`Refusing to remove unsafe staging directory: ${resolvedStaging}`);
     }
