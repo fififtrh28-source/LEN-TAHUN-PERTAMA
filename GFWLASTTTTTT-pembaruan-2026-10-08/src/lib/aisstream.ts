@@ -75,7 +75,8 @@ export class AisStreamClient {
     return Array.from(this.ships.values());
   }
 
-  // T-61: socket lama dilepas handler-nya lalu ditutup, supaya tidak ada dua socket aktif sekaligus.
+  // T-61: socket lama dilepas handler-nya lalu ditutup, supaya tidak ada dua socket aktif sekaligus
+  // dan penutupan socket lama tidak memicu penyambungan ulang tambahan.
   private closeSocket() {
     const old = this.ws;
     this.ws = null;
@@ -92,6 +93,7 @@ export class AisStreamClient {
   }
 
   private connect() {
+    if (this.stopped) return;
     this.closeSocket();
     let ws: WebSocket;
     try {
@@ -102,7 +104,7 @@ export class AisStreamClient {
       return;
     }
     this.ws = ws;
-    // Setiap handler memakai socket miliknya sendiri (ws) dan mengabaikan event jika socket itu sudah diganti.
+    // T-61: setiap handler memakai socket miliknya sendiri (ws) dan berhenti jika socket itu sudah bukan socket aktif.
     ws.onopen = () => {
       if (this.ws !== ws) return;
       this.cbs.onStatus(true);
