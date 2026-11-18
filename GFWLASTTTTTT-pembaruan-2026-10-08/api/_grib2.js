@@ -108,7 +108,7 @@ export function decodeGrib2(bytes) {
     while (q + 5 <= end - 4) {
       const len = u32(bytes, q);
       const sec = bytes[q + 4];
-            // T-04: panjang section minimal 5 byte (4 byte panjang + 1 byte nomor section) dan tidak boleh melewati akhir
+      // T-04: panjang section minimal 5 byte (4 byte panjang + 1 byte nomor section) dan tidak boleh melewati akhir
       // pesan; tanpa pemeriksaan ini, panjang 0 dari data rusak membuat loop berputar selamanya.
       if (len < 5 || q + len > end) throw new Error(`GRIB2: panjang section ${sec} tidak valid (${len} byte)`);
       if (sec === 1) {

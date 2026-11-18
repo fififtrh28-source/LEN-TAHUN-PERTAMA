@@ -91,11 +91,11 @@ export default async function handler(req, res) {
         const found = await fetchGearBatch(batch, token);
         await Promise.all(batch.map((id) => {
           gear[id] = found[id] ?? null;
-        return cacheSet(cacheKey(id), { gear: gear[id] }, gear[id] ? CACHE_TTL_SECONDS : EMPTY_TTL_SECONDS);
+          return cacheSet(cacheKey(id), { gear: gear[id] }, gear[id] ? CACHE_TTL_SECONDS : EMPTY_TTL_SECONDS);
         }));
       }
     } catch (e) {
-    console.error("[gfw gear]", e); // R-016: error lengkap (dengan stack) hanya di log server
+      console.error("[gfw gear]", e); // R-016: error lengkap (dengan stack) hanya di log server
       return res.json({ gear, warning: e?.message || "gear lookup failed" });
     }
   }

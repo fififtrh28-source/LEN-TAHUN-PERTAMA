@@ -51,7 +51,7 @@ export default async function handler(req, res) {
   if (!vesselId || !startDate || !endDate) {
     return sendProblem(res, 400, "vessel_id, start_date, end_date required");
   }
-    if (!isDay(startDate) || !isDay(endDate) || startDate > endDate) {
+  if (!isDay(startDate) || !isDay(endDate) || startDate > endDate) {
     return sendProblem(res, 400, "start_date dan end_date harus berformat YYYY-MM-DD, dan start_date tidak boleh setelah end_date.");
   }
 
