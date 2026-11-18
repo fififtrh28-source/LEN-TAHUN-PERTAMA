@@ -63,7 +63,14 @@ for (const row of rows) {
     continue;
   }
 
-  const result = await lookupGfwTrack(vesselId, sceneTime);
+  let result;
+  try {
+    result = await lookupGfwTrack(vesselId, sceneTime);
+  } catch (err) {
+    errors += 1;
+    markStillMissing(row, `still_missing_gfw_fetch_error: ${err.message}`);
+    continue;
+  }
   if (result.error) errors += 1;
   if (result.noTrack) noTrack += 1;
 
