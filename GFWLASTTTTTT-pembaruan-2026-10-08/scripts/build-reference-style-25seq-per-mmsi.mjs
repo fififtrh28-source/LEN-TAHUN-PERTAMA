@@ -22,7 +22,7 @@ const outputDir = resolve(
 );
 const sourceRenderer = resolve(
   args["source-renderer"] ??
-  "D:/FILE FIFI/GFW/GFWAISSAR-ai-test/scripts/build-ais-kalman-patches.mjs",
+  join(repoRoot, "scripts", "build-ais-kalman-patches.mjs"),
 );
 const sequenceLength = 25;
 const windowStride = positiveInteger(args["window-stride"], 0);
@@ -30,7 +30,11 @@ const multipleWindowsPerMmsi = windowStride > 0;
 const stagingDir = `${outputDir}.staging`;
 
 if (!existsSync(inputDir)) throw new Error(`Input directory does not exist: ${inputDir}`);
-if (!existsSync(sourceRenderer)) throw new Error(`Reference renderer does not exist: ${sourceRenderer}`);
+if (!existsSync(sourceRenderer)) {
+  throw new Error(
+    `Reference renderer does not exist: ${sourceRenderer}\nGunakan --source-renderer <path ke build-ais-kalman-patches.mjs>.`,
+  );
+}
 if (existsSync(outputDir) || existsSync(stagingDir)) {
   throw new Error(
     `Output or staging directory already exists.\nOutput: ${outputDir}\nStaging: ${stagingDir}`,
