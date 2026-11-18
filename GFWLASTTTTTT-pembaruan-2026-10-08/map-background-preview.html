@@ -179,7 +179,8 @@
         }).addTo(map);
 
         if (interactive) {
-          marker.bindPopup(`<b>${row.candidate_type || "candidate"}</b><br>MMSI: ${row.MMSI || "-"}<br>${row.Name || ""}`);
+          const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+          marker.bindPopup(`<b>${esc(row.candidate_type || "candidate")}</b><br>MMSI: ${esc(row.MMSI || "-")}<br>${esc(row.Name)}`);
         }
 
         points.push([lat, lon]);
