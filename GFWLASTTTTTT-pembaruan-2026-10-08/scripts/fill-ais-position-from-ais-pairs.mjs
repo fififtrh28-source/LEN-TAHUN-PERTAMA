@@ -303,7 +303,9 @@ function parseDate(text) {
 }
 
 function number(text) {
-  const n = Number(value(text));
+  const raw = value(text);
+  if (raw === "") return NaN; // Number("") = 0; sel kosong harus dianggap tidak ada, bukan koordinat 0
+  const n = Number(raw);
   return Number.isFinite(n) ? n : NaN;
 }
 
