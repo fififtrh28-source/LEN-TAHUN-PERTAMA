@@ -266,8 +266,11 @@ function isBlank(value) {
   return text(value) === "";
 }
 
+// digits = presisi maksimum; nol di belakang koma dibuang (1.500000 -> 1.5, 90.000000 -> 90)
 function formatNumber(value, digits) {
-  return Number.isFinite(value) ? value.toFixed(digits).replace(/\.?0+$/, "") : "";
+  if (!Number.isFinite(value)) return "";
+  const s = value.toFixed(digits);
+  return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
 }
 
 function formatAngle(value) {
