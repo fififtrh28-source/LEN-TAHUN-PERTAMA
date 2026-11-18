@@ -195,7 +195,10 @@ function circularMean(degrees) {
     acc.cos += Math.cos(rad);
     return acc;
   }, { sin: 0, cos: 0 });
-  return (Math.atan2(sum.sin / values.length, sum.cos / values.length) * 180 / Math.PI + 360) % 360;
+  const meanSin = sum.sin / values.length;
+  const meanCos = sum.cos / values.length;
+  if (Math.hypot(meanSin, meanCos) < 1e-10) return NaN;
+  return (Math.atan2(meanSin, meanCos) * 180 / Math.PI + 360) % 360;
 }
 
 function parsePath(path) {
