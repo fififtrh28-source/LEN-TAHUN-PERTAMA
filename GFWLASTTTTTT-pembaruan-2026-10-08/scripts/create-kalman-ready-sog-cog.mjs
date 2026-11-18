@@ -23,6 +23,16 @@ try {
 const input = rawInput.charCodeAt(0) === 0xFEFF ? rawInput.slice(1) : rawInput;
 const { headers, rows } = parseCsv(input);
 
+const requiredColumns = ["Sog", "Cog", "category"];
+const missingColumns = requiredColumns.filter((col) => !headers.includes(col));
+if (missingColumns.length) {
+  console.error(`Input CSV tidak punya kolom wajib: ${missingColumns.join(", ")}`);
+  process.exit(1);
+}
+if (!headers.includes("gfw_sar_bearing")) {
+  console.warn("Kolom gfw_sar_bearing tidak ada; COG kosong akan diisi dari rata-rata kategori.");
+}
+
 const addedColumns = [
   "Sog_for_kalman",
   "Cog_for_kalman",
