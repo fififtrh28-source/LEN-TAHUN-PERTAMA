@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, extname, join, relative } from "node:path";
+import { basename, dirname, extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -203,11 +203,7 @@ function circularMean(degrees) {
 
 function parsePath(path) {
   const ext = extname(path);
-  return {
-    dir: dirname(path),
-    base: path.slice(dirname(path).length + 1, path.length - ext.length),
-    ext,
-  };
+  return { dir: dirname(path), base: basename(path, ext), ext };
 }
 
 function parseCsv(input) {
