@@ -201,6 +201,7 @@ function parsePath(path) {
 }
 
 function parseCsv(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // buang BOM UTF-8
   const rows = [];
   let row = [];
   let field = "";
