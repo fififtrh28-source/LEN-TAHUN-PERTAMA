@@ -72,6 +72,7 @@ let filled = 0;
 let needsLookup = 0;
 let invalidPairs = 0;
 let sceneOutsidePair = 0;
+let sceneTimeMissing = 0;
 
 const outputRows = rows.map((row) => {
   const out = { ...row };
@@ -82,6 +83,7 @@ const outputRows = rows.map((row) => {
 
   const sceneTime = parseDate(sceneTimestamp(row));
   out.ais_position_scene_timestamp_utc = sceneTime ? sceneTime.toISOString() : "";
+  if (!sceneTime) sceneTimeMissing += 1;
 
   if (originalLat && originalLon) {
     alreadyPresent += 1;
@@ -158,6 +160,7 @@ const report = [
   `Scene time outside AIS pair range: ${sceneOutsidePair}`,
   `Invalid/incomplete AIS pair: ${invalidPairs}`,
   `Still needs external AIS lookup: ${needsLookup}`,
+  `Rows without derivable scene timestamp: ${sceneTimeMissing}`,
   "",
   "Method:",
   "- AIS_Latitude and AIS_Longitude are calculated only when a row has two valid timestamped AIS points around the SAR scene time.",
