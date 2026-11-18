@@ -55,6 +55,7 @@ let filledPair = 0;
 let filledStationaryCogPlaceholder = 0;
 let noTrack = 0;
 let errors = 0;
+let eventFallbackCalls = 0;
 
 for (const row of rows) {
   if (!hasMissingSogOrCog(row)) continue;
@@ -130,6 +131,7 @@ const report = [
   `Filled stationary COG placeholder where SOG=0: ${filledStationaryCogPlaceholder}`,
   `GFW no track: ${noTrack}`,
   `GFW errors: ${errors}`,
+  `GFW track 404 -> event fallback calls (no speed/course): ${eventFallbackCalls}`,
   `Missing rows after GFW live: ${missingRows.length}`,
 ].join("\n");
 
@@ -251,6 +253,7 @@ async function fetchTrack(vesselId, startDate, endDate) {
 }
 
 async function fetchEventTrack(vesselId, startDate, endDate) {
+  eventFallbackCalls += 1;
   const url = new URL(`${GFW_BASE}/events`);
   url.searchParams.set("limit", "200");
   url.searchParams.set("offset", "0");
