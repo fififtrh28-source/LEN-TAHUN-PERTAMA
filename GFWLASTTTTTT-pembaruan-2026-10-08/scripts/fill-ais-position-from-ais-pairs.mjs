@@ -16,7 +16,13 @@ const enrichedPath = join(parsedInput.dir, `${parsedInput.base}_ais_position_enr
 const lookupPath = join(parsedInput.dir, `${parsedInput.base}_needs_external_ais_position_lookup${parsedInput.ext}`);
 const reportPath = join(parsedInput.dir, `${parsedInput.base}_ais_position_report.txt`);
 
-const csv = readFileSync(inputPath, "utf8");
+let csv;
+try {
+  csv = readFileSync(inputPath, "utf8");
+} catch (err) {
+  console.error(`Gagal membaca input CSV: ${inputPath} (${err.code ?? err.message})`);
+  process.exit(1);
+}
 const { headers, rows } = parseCsv(csv);
 
 const addedColumns = [
@@ -325,4 +331,13 @@ function finiteLatLon(lat, lon) {
 
 function formatNumber(n, digits) {
   return Number.isFinite(n) ? n.toFixed(digits).replace(/\.?0+$/, "") : "";
+}
+
+function writeOutput(path, content) {
+  try {
+    writeFileSync(path, content, "utf8");
+  } catch (err) {
+    console.error(`Gagal menulis file: ${path} (${err.code ?? err.message})`);
+    process.exit(1);
+  }
 }
