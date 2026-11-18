@@ -142,8 +142,8 @@ const outputRows = rows.map((row) => {
   return out;
 });
 
-writeFileSync(enrichedPath, stringifyCsv(outputHeaders, outputRows), "utf8");
-writeFileSync(lookupPath, stringifyCsv(lookupHeaders, lookupRows), "utf8");
+writeOutput(enrichedPath, stringifyCsv(outputHeaders, outputRows));
+writeOutput(lookupPath, stringifyCsv(lookupHeaders, lookupRows));
 
 const report = [
   "AIS position enrichment report",
@@ -170,7 +170,7 @@ const report = [
   "Recommended external source for remaining rows:",
   "- Global Fishing Watch AIS vessel track / AIS Vessel Presence near each SAR scene timestamp.",
 ].join("\n");
-writeFileSync(reportPath, report, "utf8");
+writeOutput(reportPath, report);
 
 console.log(report);
 
@@ -305,7 +305,10 @@ function sceneTimestamp(row) {
 function parseDate(text) {
   const raw = value(text);
   if (!raw) return null;
-  const date = new Date(raw);
+  const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(raw)
+    ? `${raw.replace(" ", "T")}Z`
+    : raw;
+  const date = new Date(normalized);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
