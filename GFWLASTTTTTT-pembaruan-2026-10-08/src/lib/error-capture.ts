@@ -16,7 +16,8 @@ const requestContext = new AsyncLocalStorage<string>();
 const capturedErrors = new Map<string, CapturedError>();
 
 function record(error: unknown) {
-  const requestId = requestContext.getStore() ?? UNSCOPED;
+  // T-62: galat di luar scope permintaan diberi kunci unik, supaya galat kedua tidak menimpa galat pertama.
+  const requestId = requestContext.getStore() ?? `${UNSCOPED}:${crypto.randomUUID()}`;
   // Hapus lalu isi lagi supaya kunci ini menjadi yang paling baru (urutan Map = urutan pemakaian).
   capturedErrors.delete(requestId);
   capturedErrors.set(requestId, { error, at: Date.now() });
@@ -39,10 +40,20 @@ export function runWithRequestId<T>(requestId: string, fn: () => T): T {
   return requestContext.run(requestId, fn);
 }
 
+// K-19: listener error/unhandledrejection global bisa berjalan di luar scope runWithRequestId, sehingga galatnya
+// tercatat tanpa ID permintaan. Jika tidak ada galat dengan ID ini, dipakai galat tanpa ID yang paling baru
+// (masih dalam TTL), supaya stack asli tetap bisa ditampilkan di log server.
+function newestUnscopedKey(): string | undefined {
+  let found: string | undefined;
+  for (const key of capturedErrors.keys()) if (key.startsWith(`${UNSCOPED}:`)) found = key;
+  return found;
+}
+
 export function consumeCapturedError(requestId: string): unknown {
-  const entry = capturedErrors.get(requestId);
-  if (!entry) return undefined;
-  capturedErrors.delete(requestId);
+  const key = capturedErrors.has(requestId) ? requestId : newestUnscopedKey();
+  const entry = key === undefined ? undefined : capturedErrors.get(key);
+  if (key === undefined || !entry) return undefined;
+  capturedErrors.delete(key);
   if (Date.now() - entry.at > TTL_MS) return undefined;
   return entry.error;
 }
