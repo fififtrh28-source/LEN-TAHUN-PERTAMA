@@ -13,7 +13,14 @@ const parsed = parsePath(inputPath);
 const outputPath = join(parsed.dir, `${parsed.base}_kalman_ready${parsed.ext}`);
 const reportPath = join(parsed.dir, `${parsed.base}_kalman_ready_report.txt`);
 
-const { headers, rows } = parseCsv(readFileSync(inputPath, "utf8"));
+let rawInput;
+try {
+  rawInput = readFileSync(inputPath, "utf8");
+} catch (err) {
+  console.error(`Gagal membaca input CSV: ${inputPath} (${err.code ?? err.message})`);
+  process.exit(1);
+}
+const { headers, rows } = parseCsv(rawInput);
 
 const addedColumns = [
   "Sog_for_kalman",
@@ -276,4 +283,13 @@ function formatNumber(value, digits) {
 function formatAngle(value) {
   if (!Number.isFinite(value)) return "";
   return formatNumber(((value % 360) + 360) % 360, 6);
+}
+
+function writeOutput(path, content) {
+  try {
+    writeFileSync(path, content, "utf8");
+  } catch (err) {
+    console.error(`Gagal menulis file: ${path} (${err.code ?? err.message})`);
+    process.exit(1);
+  }
 }
