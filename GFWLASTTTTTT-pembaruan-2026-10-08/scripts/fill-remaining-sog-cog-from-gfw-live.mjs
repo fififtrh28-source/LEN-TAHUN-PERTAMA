@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, renameSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -112,8 +112,8 @@ for (const row of rows) {
 }
 
 const missingRows = rows.filter(hasMissingSogOrCog);
-writeFileSync(outputPath, stringifyCsv(outputHeaders, rows), "utf8");
-writeFileSync(auditPath, stringifyCsv(outputHeaders, missingRows), "utf8");
+writeFileAtomic(outputPath, stringifyCsv(outputHeaders, rows));
+writeFileAtomic(auditPath, stringifyCsv(outputHeaders, missingRows));
 
 const report = [
   "GFW live SOG/COG fill report",
@@ -130,7 +130,7 @@ const report = [
   `Missing rows after GFW live: ${missingRows.length}`,
 ].join("\n");
 
-writeFileSync(reportPath, report, "utf8");
+writeFileAtomic(reportPath, report);
 console.log(report);
 
 async function lookupGfwTrack(vesselId, sceneTime) {
@@ -483,4 +483,10 @@ function formatNumber(input, digits) {
 
 function formatAngle(input) {
   return Number.isFinite(input) ? formatNumber(normalizeAngle(input), 6) : "";
+}
+
+function writeFileAtomic(path, content) {
+  const tmpPath = `${path}.tmp`;
+  writeFileSync(tmpPath, content, "utf8");
+  renameSync(tmpPath, path);
 }
