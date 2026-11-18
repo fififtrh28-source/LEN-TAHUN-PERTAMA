@@ -42,6 +42,9 @@ for (const col of [
   "gfw_live_track_point_count",
   "gfw_live_track_nearest_time",
   "gfw_live_track_nearest_minutes",
+  "sog_cog_source_fields",
+  "sog_cog_distance_km",
+  "sog_cog_time_hours",
 ]) {
   if (!outputHeaders.includes(col)) outputHeaders.push(col);
 }
