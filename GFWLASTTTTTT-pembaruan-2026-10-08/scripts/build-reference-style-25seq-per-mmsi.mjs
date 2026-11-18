@@ -376,8 +376,12 @@ function haversineM(lat1, lon1, lat2, lon2) {
   return radiusM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// decimals = presisi maksimum; nol di belakang koma dibuang (1.5000 -> 1.5, 100.000 -> 100)
 function formatNumber(input, decimals) {
-  return Number.isFinite(Number(input)) ? Number(input).toFixed(decimals).replace(/\.?0+$/, "") : "";
+  const value = Number(input);
+  if (!Number.isFinite(value)) return "";
+  const text = value.toFixed(decimals);
+  return text.includes(".") ? text.replace(/\.?0+$/, "") : text;
 }
 
 function escapeHtml(input) {
