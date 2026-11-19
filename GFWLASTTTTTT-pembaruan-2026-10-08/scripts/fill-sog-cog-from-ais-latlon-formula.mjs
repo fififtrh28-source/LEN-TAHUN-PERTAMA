@@ -25,7 +25,14 @@ const STILL_MISSING_STATUS = "still_missing_no_second_timestamped_ais_point";
 const REJECTED_AIS_TO_SAR_STATUS = "still_missing_ais_to_sar_candidate_rejected_implausible";
 const STATIONARY_STATUS = "stationary_or_near_zero_displacement";
 
-const { headers, rows } = parseCsv(readFileSync(inputPath, "utf8"));
+let rawInput;
+try {
+  rawInput = readFileSync(inputPath, "utf8");
+} catch (err) {
+  console.error(`Gagal membaca input CSV: ${inputPath} (${err.code ?? err.message})`);
+  process.exit(1);
+}
+const { headers, rows } = parseCsv(rawInput);
 
 const addedColumns = [
   "SOG_calc",
@@ -163,8 +170,8 @@ const missingRows = rows.filter(hasMissingSogOrCog);
 const missingSogAfter = rows.filter((row) => isBlank(row.Sog)).length;
 const missingCogAfter = rows.filter((row) => isBlank(row.Cog)).length;
 const stillMissingByStatus = countBy(missingRows, (row) => row.sog_cog_status || STILL_MISSING_STATUS);
-writeFileSync(outputPath, stringifyCsv(outputHeaders, rows), "utf8");
-writeFileSync(stillMissingPath, stringifyCsv(outputHeaders, missingRows), "utf8");
+writeOutput(outputPath, stringifyCsv(outputHeaders, rows));
+writeOutput(stillMissingPath, stringifyCsv(outputHeaders, missingRows));
 
 const report = [
   "AIS/SAR SOG/COG final enrichment report",
@@ -199,7 +206,7 @@ const report = [
   "- Rows without a second timestamped AIS point are left blank.",
 ].join("\n");
 
-writeFileSync(reportPath, report, "utf8");
+writeOutput(reportPath, report);
 console.log(report);
 
 function buildAisPointIndex(inputRows) {
@@ -679,4 +686,13 @@ function formatNumber(input, digits) {
 function formatAngle(input) {
   if (!Number.isFinite(input)) return "";
   return formatNumber(((input % 360) + 360) % 360, 6);
+}
+
+function writeOutput(path, content) {
+  try {
+    writeFileSync(path, content, "utf8");
+  } catch (err) {
+    console.error(`Gagal menulis file: ${path} (${err.code ?? err.message})`);
+    process.exit(1);
+  }
 }
