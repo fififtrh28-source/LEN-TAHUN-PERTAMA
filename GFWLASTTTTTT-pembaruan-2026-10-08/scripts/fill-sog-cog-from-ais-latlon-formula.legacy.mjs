@@ -13,6 +13,7 @@ const parsed = parsePath(inputPath);
 const outputPath = join(parsed.dir, `${parsed.base}_ais_latlon_formula_filled${parsed.ext}`);
 const stillMissingPath = join(parsed.dir, `${parsed.base}_ais_latlon_formula_still_missing_sog_cog${parsed.ext}`);
 const reportPath = join(parsed.dir, `${parsed.base}_ais_latlon_formula_report.txt`);
+const MIN_TIME_GAP_HOURS = 60 / 3600;
 
 const { headers, rows } = parseCsv(readFileSync(inputPath, "utf8"));
 
@@ -201,7 +202,7 @@ function computeFromSameMmsiScene(row) {
   for (const point of points) {
     if (point.row === row) continue;
     const hoursAbs = Math.abs(point.sceneTime - sceneTime) / 3_600_000;
-    if (!(hoursAbs > 0)) continue;
+    if (!(hoursAbs >= MIN_TIME_GAP_HOURS)) continue;    
     if (!best || hoursAbs < best.hoursAbs) best = { ...point, hoursAbs };
   }
   if (!best) return null;
