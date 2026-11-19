@@ -186,6 +186,7 @@ function parsePath(path) {
 }
 
 function parseCsv(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
   const rows = [];
   let row = [];
   let field = "";
