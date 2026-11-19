@@ -15,7 +15,14 @@ const lookupPath = join(parsedInput.dir, `${parsedInput.base}_needs_external_sog
 const reportPath = join(parsedInput.dir, `${parsedInput.base}_sog_cog_report.txt`);
 const MIN_TIME_GAP_MS = 60_000;
 
-const csv = readFileSync(inputPath, "utf8");
+let csv;
+try {
+  csv = readFileSync(inputPath, "utf8");
+} catch (err) {
+  console.error(`Gagal membaca input CSV: ${inputPath} (${err.code ?? err.message})`);
+  process.exit(1);
+}
+
 const { headers, rows } = parseCsv(csv);
 
 const addedColumns = [
@@ -144,8 +151,8 @@ const outputRows = rows.map((row) => {
   return out;
 });
 
-writeFileSync(enrichedPath, stringifyCsv(outputHeaders, outputRows), "utf8");
-writeFileSync(lookupPath, stringifyCsv(lookupHeaders, lookupRows), "utf8");
+writeOutput(enrichedPath, stringifyCsv(outputHeaders, outputRows));
+writeOutput(lookupPath, stringifyCsv(lookupHeaders, lookupRows));
 
 const report = [
   "SOG/COG enrichment report",
@@ -172,7 +179,7 @@ const report = [
   "Recommended external source for remaining rows:",
   "- Global Fishing Watch API, AIS Vessel Presence / AIS vessel track near each SAR scene timestamp.",
 ].join("\n");
-writeFileSync(reportPath, report, "utf8");
+writeOutput(reportPath, report);
 
 console.log(report);
 
@@ -340,4 +347,13 @@ function toDeg(rad) {
 
 function formatNumber(n, digits) {
   return Number.isFinite(n) ? n.toFixed(digits).replace(/\.?0+$/, "") : "";
+}
+
+function writeOutput(path, content) {
+  try {
+    writeFileSync(path, content, "utf8");
+  } catch (err) {
+    console.error(`Gagal menulis file: ${path} (${err.code ?? err.message})`);
+    process.exit(1);
+  }
 }
