@@ -52,8 +52,9 @@ const trackCache = new Map();
 const windows = [1, 3, 7, 14];
 const API_BASE = (process.env.ONX_API_BASE || "http://127.0.0.1:5175").replace(/\/+$/, "");
 
-for (let i = 0; i < rows.length; i += 1) {
-  const row = rows[i];
+const CONCURRENCY = Math.max(1, Number(process.env.GFW_CONCURRENCY) || 4);
+
+async function processRow(row) {
   row.sog_cog_completion_scene_timestamp_utc = sceneTimestamp(row);
   row.sog_cog_completion_track_window_days = "";
   row.sog_cog_completion_nearest_track_time = "";
@@ -64,7 +65,7 @@ for (let i = 0; i < rows.length; i += 1) {
     row.sog_cog_completion_status = "already_complete";
     row.sog_cog_completion_source = "existing_dataset_columns";
     row.sog_cog_completion_note = "";
-    continue;
+    return;
   }
 
   const sceneTime = parseDate(row.sog_cog_completion_scene_timestamp_utc);
@@ -107,6 +108,16 @@ for (let i = 0; i < rows.length; i += 1) {
   }
 }
 
+let nextRowIndex = 0;
+async function worker() {
+  while (nextRowIndex < rows.length) {
+    const row = rows[nextRowIndex];
+    nextRowIndex += 1;
+    await processRow(row);
+  }
+}
+await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+
 writeFileSync(outputPath, stringifyCsv(outputHeaders, rows), "utf8");
 writeFileSync(lookupPath, stringifyCsv(outputHeaders, rows.filter(hasMissingSogOrCog)), "utf8");
 
@@ -142,17 +153,8 @@ async function lookupGfwTrack(vesselId, sceneTime) {
     const start = dateOnly(addDays(sceneTime, -windowDays));
     const end = dateOnly(addDays(sceneTime, windowDays + 1));
     const key = `${vesselId}|${start}|${end}`;
-    let data = trackCache.get(key);
-    if (!data) {
-      const url = `${API_BASE}/api/gfw/track?vessel_id=${encodeURIComponent(vesselId)}&start_date=${start}&end_date=${end}`;      
-      try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-        data = res.ok ? await res.json() : { error: `HTTP ${res.status}`, track: [] };
-      } catch (error) {
-        data = { error: error?.message || "fetch failed", track: [] };
-      }
-      trackCache.set(key, data);
-    }
+    if (!trackCache.has(key)) trackCache.set(key, fetchTrackData(vesselId, start, end));
+    const data = await trackCache.get(key);      
 
     const track = Array.isArray(data?.track) ? data.track
       .map((p) => ({
@@ -207,6 +209,16 @@ async function lookupGfwTrack(vesselId, sceneTime) {
   }
 
   return { noTrack: true };
+}
+
+async function fetchTrackData(vesselId, start, end) {
+  const url = `${API_BASE}/api/gfw/track?vessel_id=${encodeURIComponent(vesselId)}&start_date=${start}&end_date=${end}`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+    return res.ok ? await res.json() : { error: `HTTP ${res.status}`, track: [] };
+  } catch (error) {
+    return { error: error?.message || "fetch failed", track: [] };
+  }
 }
 
 function nearestPoint(track, sceneTime) {
