@@ -633,13 +633,6 @@ function number(input) {
   return Number.isFinite(n) ? n : NaN;
 }
 
-function parseDate(input) {
-  const raw = value(input);
-  if (!raw) return null;
-  const date = new Date(raw);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
 function sceneTimestamp(row) {
   const fromScene = value(row.scene).match(/(\d{8}T\d{6})/);
   if (!fromScene) return null;
