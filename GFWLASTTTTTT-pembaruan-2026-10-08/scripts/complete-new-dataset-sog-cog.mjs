@@ -50,6 +50,7 @@ let gfwErrors = 0;
 
 const trackCache = new Map();
 const windows = [1, 3, 7, 14];
+const API_BASE = (process.env.ONX_API_BASE || "http://127.0.0.1:5175").replace(/\/+$/, "");
 
 for (let i = 0; i < rows.length; i += 1) {
   const row = rows[i];
@@ -143,7 +144,7 @@ async function lookupGfwTrack(vesselId, sceneTime) {
     const key = `${vesselId}|${start}|${end}`;
     let data = trackCache.get(key);
     if (!data) {
-      const url = `http://127.0.0.1:5175/api/gfw/track?vessel_id=${encodeURIComponent(vesselId)}&start_date=${start}&end_date=${end}`;
+      const url = `${API_BASE}/api/gfw/track?vessel_id=${encodeURIComponent(vesselId)}&start_date=${start}&end_date=${end}`;      
       try {
         const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
         data = res.ok ? await res.json() : { error: `HTTP ${res.status}`, track: [] };
