@@ -49,6 +49,18 @@ const missingSogBefore = rows.filter((row) => isBlank(row.Sog)).length;
 const missingCogBefore = rows.filter((row) => isBlank(row.Cog)).length;
 const { pointsByMmsi, currentPointByRowIndex } = buildAisPointIndex(rows);
 
+const rowIndexesByMmsi = new Map();
+for (const [index, row] of rows.entries()) {
+  const key = value(row.MMSI);
+  if (!rowIndexesByMmsi.has(key)) rowIndexesByMmsi.set(key, []);
+  rowIndexesByMmsi.get(key).push(index);
+}
+const rowTimeCache = new Map();
+function rowTime(index) {
+  if (!rowTimeCache.has(index)) rowTimeCache.set(index, bestCurrentTimestamp(rows[index])?.time ?? null);
+  return rowTimeCache.get(index);
+}
+
 let alreadyComplete = 0;
 let calculatedFromFormula = 0;
 let stationaryOrNearZero = 0;
@@ -431,14 +443,14 @@ function sameMmsiCogFallback(row, rowIndex, mmsi) {
   const ownCog = firstFiniteNumber(row.Cog, row.Cog_original);
   if (Number.isFinite(ownCog)) return normalizeAngle(ownCog);
 
-  const currentTime = bestCurrentTimestamp(row)?.time;
+  const currentTime = rowTime(rowIndex);
   let best = null;
-  for (const [candidateIndexText, candidate] of rows.entries()) {
-    const candidateIndex = Number(candidateIndexText);
-    if (candidateIndex === rowIndex || value(candidate.MMSI) !== mmsi) continue;
+  for (const candidateIndex of rowIndexesByMmsi.get(mmsi) ?? []) {
+    if (candidateIndex === rowIndex) continue;
+    const candidate = rows[candidateIndex];
     const cog = firstFiniteNumber(candidate.Cog, candidate.Cog_original);
     if (!Number.isFinite(cog)) continue;
-    const candidateTime = bestCurrentTimestamp(candidate)?.time;
+    const candidateTime = rowTime(candidateIndex);
     const gap = currentTime && candidateTime ? Math.abs(candidateTime - currentTime) : 0;
     if (!best || gap < best.gap) best = { cog, gap };
   }
