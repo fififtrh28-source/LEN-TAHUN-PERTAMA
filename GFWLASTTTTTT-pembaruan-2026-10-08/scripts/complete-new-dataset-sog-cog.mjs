@@ -14,7 +14,14 @@ const outputPath = join(parsed.dir, `${parsed.base}_completed${parsed.ext}`);
 const reportPath = join(parsed.dir, `${parsed.base}_completed_report.txt`);
 const lookupPath = join(parsed.dir, `${parsed.base}_still_missing_sog_cog.csv`);
 
-const csv = readFileSync(inputPath, "utf8");
+let csv;
+try {
+  csv = readFileSync(inputPath, "utf8");
+} catch (err) {
+  console.error(`Gagal membaca input CSV: ${inputPath} (${err.code ?? err.message})`);
+  process.exit(1);
+}
+
 const { headers, rows } = parseCsv(csv);
 
 const addedColumns = [
