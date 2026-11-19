@@ -226,14 +226,14 @@ function surroundingPair(track, sceneTime) {
   let before = null;
   let after = null;
   for (const p of track) {
-    if (p.time <= sceneTime) before = p;
-    if (p.time >= sceneTime) {
+    if (p.time < sceneTime) {
+      before = p;
+    } else {
       after = p;
       break;
     }
   }
-  if (before && after && before !== after) return { before, after };
-  return null;
+  return before && after ? { before, after } : null;
 }
 
 function parsePath(path) {
