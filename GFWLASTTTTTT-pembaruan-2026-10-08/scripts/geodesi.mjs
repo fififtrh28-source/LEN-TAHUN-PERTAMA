@@ -10,6 +10,13 @@ import { destination } from "@turf/destination";
 const toRad = (deg) => (deg * Math.PI) / 180;
 const toDeg = (rad) => (rad * 180) / Math.PI;
 
+
+function assertCoords(lat, lon, label) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+    throw new RangeError(`Koordinat tidak valid (${label}): lat=${lat}, lon=${lon}`);
+  }
+}
+
 // K-3: langkah normalisasi bujur dari fungsi interpolateLongitude di PDF (tanpa pembulatan).
 export function wrapLon(lon) {
   if (lon >= -180 && lon <= 180) return lon;
@@ -26,6 +33,8 @@ export function lonDelta(fromLon, toLon) {
 // dihitung di permukaan bola dengan Turf.js, lalu diubah ke sumbu x (timur) dan y (utara) dalam meter.
 // Filter Kalman bekerja di sumbu meter ini.
 export function projectToMeters(lat, lon, refLat, refLon) {
+  assertCoords(lat, lon, "titik");
+  assertCoords(refLat, refLon, "acuan");
   const from = point([refLon, refLat]);
   const to = point([lon, lat]);
   const d = distance(from, to, { units: "meters" });
@@ -36,6 +45,8 @@ export function projectToMeters(lat, lon, refLat, refLon) {
 
 // Kebalikan projectToMeters: dari sumbu meter kembali ke lintang/bujur memakai Turf.js destination.
 export function unprojectFromMeters(x, y, refLat, refLon) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) throw new RangeError(`Meter tidak valid: x=${x}, y=${y}`);
+  assertCoords(refLat, refLon, "acuan");
   const d = Math.hypot(x, y);
   if (d === 0) return { lat: refLat, lon: wrapLon(refLon) };
   const [lon, lat] = destination(point([refLon, refLat]), d, toDeg(Math.atan2(x, y)), { units: "meters" }).geometry.coordinates;
@@ -45,6 +56,9 @@ export function unprojectFromMeters(x, y, refLat, refLon) {
 // Titik pada jalur terpendek di permukaan bumi (great circle) antara dua posisi, pada bagian factor (0..1) dari jaraknya.
 // Bujur hasilnya dinormalisasi dan dibulatkan 6 angka di belakang koma seperti fungsi interpolateLongitude di PDF (K-3).
 export function interpolatePosition(lat1, lon1, lat2, lon2, factor) {
+  assertCoords(lat1, lon1, "awal");
+  assertCoords(lat2, lon2, "akhir");
+  if (!Number.isFinite(factor)) throw new RangeError(`factor tidak valid: ${factor}`);
   const from = point([lon1, lat1]);
   const to = point([lon2, lat2]);
   const d = distance(from, to, { units: "meters" });
