@@ -27,6 +27,16 @@ try {
   process.exit(1);
 }
 const { headers, rows } = parseCsv(rawInput);
+const requiredColumns = ["MMSI", "kalman_est_lat", "kalman_est_lon"];
+const missingColumns = requiredColumns.filter((col) => !headers.includes(col));
+if (missingColumns.length) {
+  console.error(`Input CSV tidak punya kolom wajib: ${missingColumns.join(", ")}`);
+  process.exit(1);
+}
+if (!rows.length) {
+  console.error(`Input CSV tidak berisi baris data: ${inputPath}`);
+  process.exit(1);
+}
 
 const pointHeaders = [
   "MMSI",
