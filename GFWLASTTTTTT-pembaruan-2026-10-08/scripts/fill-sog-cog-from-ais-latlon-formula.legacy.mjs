@@ -59,7 +59,6 @@ let alreadyComplete = 0;
 let filledFromBeforeAfter = 0;
 let filledStationaryCog = 0;
 let filledFromSameMmsiScene = 0;
-let stillMissing = 0;
 
 for (const row of rows) {
   row.Sog_before_ais_latlon_formula = value(row.Sog);
@@ -137,7 +136,6 @@ for (const row of rows) {
   }
 
   if (hasMissingSogOrCog(row)) {
-    stillMissing += 1;
     if (!row.ais_latlon_formula_status) {
       row.ais_latlon_formula_status = "still_missing_no_second_timestamped_ais_point";
       row.ais_latlon_formula_source = "not_filled";
