@@ -342,11 +342,10 @@ function parseDate(input) {
 
 function sceneTimestamp(row) {
   const fromScene = value(row.scene).match(/(\d{8}T\d{6})/);
-  if (fromScene) {
-    const s = fromScene[1];
-    return new Date(`${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}:${s.slice(13, 15)}Z`);
-  }
-  return null;
+  if (!fromScene) return null;
+  const s = fromScene[1];
+  const date = new Date(`${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}:${s.slice(13, 15)}Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function finiteLatLon(lat, lon) {
