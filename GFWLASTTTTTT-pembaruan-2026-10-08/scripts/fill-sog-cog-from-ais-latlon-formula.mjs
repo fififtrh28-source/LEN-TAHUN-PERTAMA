@@ -35,6 +35,9 @@ const addedColumns = [
   "sog_cog_status",
   "distance_m",
   "delta_time_s",
+    "sog_cog_source_fields",
+  "sog_cog_distance_km",
+  "sog_cog_time_hours",
 ];
 
 const outputHeaders = [...headers];
