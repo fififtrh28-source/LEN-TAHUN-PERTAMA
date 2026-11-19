@@ -13,6 +13,7 @@ const parsedInput = parsePath(inputPath);
 const enrichedPath = join(parsedInput.dir, `${parsedInput.base}_sog_cog_enriched${parsedInput.ext}`);
 const lookupPath = join(parsedInput.dir, `${parsedInput.base}_needs_external_sog_cog_lookup${parsedInput.ext}`);
 const reportPath = join(parsedInput.dir, `${parsedInput.base}_sog_cog_report.txt`);
+const MIN_TIME_GAP_MS = 60_000;
 
 const csv = readFileSync(inputPath, "utf8");
 const { headers, rows } = parseCsv(csv);
@@ -257,7 +258,7 @@ function readAisPair(row) {
 
   const ok = beforeTime
     && afterTime
-    && afterTime.getTime() > beforeTime.getTime()
+    && afterTime.getTime() - beforeTime.getTime() >= MIN_TIME_GAP_MS    
     && finiteLatLon(beforeLat, beforeLon)
     && finiteLatLon(afterLat, afterLon);
 
