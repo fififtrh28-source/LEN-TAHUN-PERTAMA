@@ -114,7 +114,7 @@ for (const [mmsi, group] of groups) {
   for (const p of group) {
     const lon = validCoord(p.ais_lon);
     const lat = validCoord(p.ais_lat);
-    if (lon === null || lat === null) continue; // Jangan masukkan koordinat kosong ke GeoJSON
+    if (lon === null || lat === null) continue; // Jangan masukkan koordinat kosong ke GeoJSON    
     if (finiteLatLon(lat, lon)) rawCoordinates.push([lon, lat]);
   }
   if (rawCoordinates.length >= 2) {
