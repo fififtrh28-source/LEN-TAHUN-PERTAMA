@@ -285,7 +285,12 @@ function parseCsv(text) {
     headers,
     rows: rows
       .filter((r) => r.some((cell) => cell.trim() !== ""))
-      .map((r) => Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ""]))),
+      .map((r, rowIndex) => {
+        if (r.length > headers.length) {
+          console.warn(`CSV baris data ${rowIndex + 1}: ${r.length} sel, header hanya ${headers.length}; sel kelebihan diabaikan.`);
+        }
+        return Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ""]));
+      }),
   };
 }
 
