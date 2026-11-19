@@ -15,7 +15,14 @@ const stillMissingPath = join(parsed.dir, `${parsed.base}_ais_latlon_formula_sti
 const reportPath = join(parsed.dir, `${parsed.base}_ais_latlon_formula_report.txt`);
 const MIN_TIME_GAP_HOURS = 60 / 3600;
 
-const { headers, rows } = parseCsv(readFileSync(inputPath, "utf8"));
+let rawInput;
+try {
+  rawInput = readFileSync(inputPath, "utf8");
+} catch (err) {
+  console.error(`Gagal membaca input CSV: ${inputPath} (${err.code ?? err.message})`);
+  process.exit(1);
+}
+const { headers, rows } = parseCsv(rawInput);
 
 const addedColumns = [
   "Sog_before_ais_latlon_formula",
@@ -140,8 +147,8 @@ for (const row of rows) {
 }
 
 const missingRows = rows.filter(hasMissingSogOrCog);
-writeFileSync(outputPath, stringifyCsv(outputHeaders, rows), "utf8");
-writeFileSync(stillMissingPath, stringifyCsv(outputHeaders, missingRows), "utf8");
+writeOutput(outputPath, stringifyCsv(outputHeaders, rows));
+writeOutput(stillMissingPath, stringifyCsv(outputHeaders, missingRows));
 
 const report = [
   "AIS lat/lon SOG/COG formula fill report",
@@ -168,7 +175,7 @@ const report = [
   "- Rows without a second timestamped AIS point are left blank.",
 ].join("\n");
 
-writeFileSync(reportPath, report, "utf8");
+writeOutput(reportPath, report);
 console.log(report);
 
 function computeFromBeforeAfter(row) {
@@ -388,4 +395,13 @@ function formatNumber(input, digits) {
 function formatAngle(input) {
   if (!Number.isFinite(input)) return "";
   return formatNumber(((input % 360) + 360) % 360, 6);
+}
+
+function writeOutput(path, content) {
+  try {
+    writeFileSync(path, content, "utf8");
+  } catch (err) {
+    console.error(`Gagal menulis file: ${path} (${err.code ?? err.message})`);
+    process.exit(1);
+  }
 }
