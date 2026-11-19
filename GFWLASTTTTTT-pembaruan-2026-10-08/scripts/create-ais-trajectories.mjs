@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 // C.1 (laporan audit): titik potong lintasan di bujur 180° dicari di permukaan bumi dengan Turf.js.
-import { interpolatePosition, lonDelta } from "./geodesi.mjs";
+import { interpolatePositionExact, lonDelta } from "./geodesi.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = dirname(__dirname);
@@ -378,7 +378,7 @@ function unwrapLon(refLon, lon) {
 }
 
 // C.1: lintang titik potong di bujur 180° pada jalur terpendek (great circle) antara dua titik, dicari dengan bagi dua
-// (bisection) di sepanjang jalur memakai Turf.js. Ketelitiannya sekitar 10 cm (batas pembulatan bujur 6 desimal).
+// (bisection) di sepanjang jalur memakai Turf.js, tanpa pembulatan bujur agar bisektor konvergen penuh.
 function antimeridianCrossingLat(lat1, lon1, lat2, lon2, edge) {
   const side = (lon) => lonDelta(lon1, lon) * Math.sign(edge); // naik dari 0 sampai melewati garis 180°
   const target = Math.abs(lonDelta(lon1, edge));
@@ -386,10 +386,10 @@ function antimeridianCrossingLat(lat1, lon1, lat2, lon2, edge) {
   let hi = 1;
   for (let k = 0; k < 50; k += 1) {
     const mid = (lo + hi) / 2;
-    const p = interpolatePosition(lat1, lon1, lat2, lon2, mid);
+    const p = interpolatePositionExact(lat1, lon1, lat2, lon2, mid);
     if (side(p.lon) >= 0 && side(p.lon) < target) lo = mid; else hi = mid;
   }
-  return interpolatePosition(lat1, lon1, lat2, lon2, (lo + hi) / 2).lat;
+  return interpolatePositionExact(lat1, lon1, lat2, lon2, (lo + hi) / 2).lat;
 }
 
 // Garis lintasan GeoJSON. Bagian yang melewati bujur 180° dipotong tepat di garis itu, sesuai RFC 7946 bagian 3.1.9
