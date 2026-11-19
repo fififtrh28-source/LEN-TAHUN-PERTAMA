@@ -287,7 +287,9 @@ function parseDate(text) {
 }
 
 function number(text) {
-  const n = Number(value(text));
+  const raw = value(text);
+  if (raw === "") return NaN;
+  const n = Number(raw);
   return Number.isFinite(n) ? n : NaN;
 }
 
