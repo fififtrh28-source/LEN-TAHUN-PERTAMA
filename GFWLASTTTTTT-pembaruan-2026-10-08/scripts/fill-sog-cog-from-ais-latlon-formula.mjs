@@ -500,8 +500,11 @@ function parseDateish(input) {
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  const date = new Date(raw);
-  if (!Number.isNaN(date.getTime())) return date;
+  if (/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/.test(raw)) {
+    const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(raw) ? `${raw.replace(" ", "T")}Z` : raw;
+    const date = new Date(normalized);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
 
   const fromScene = raw.match(/(\d{8}T\d{6})/);
   if (!fromScene) return null;
