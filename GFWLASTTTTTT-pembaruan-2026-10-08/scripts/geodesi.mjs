@@ -12,18 +12,14 @@ const toDeg = (rad) => (rad * 180) / Math.PI;
 
 // K-3: langkah normalisasi bujur dari fungsi interpolateLongitude di PDF (tanpa pembulatan).
 export function wrapLon(lon) {
-  let result = lon;
-  while (result < -180) result += 360;
-  while (result > 180) result -= 360;
-  return result;
+  if (lon >= -180 && lon <= 180) return lon;
+  const wrapped = ((((lon + 180) % 360) + 360) % 360) - 180;
+  return wrapped === -180 && lon > 0 ? 180 : wrapped;
 }
 
 // K-3: selisih bujur toLon − fromLon dijaga di antara −180° dan 180°.
 export function lonDelta(fromLon, toLon) {
-  let diff = toLon - fromLon;
-  while (diff < -180) diff += 360;
-  while (diff > 180) diff -= 360;
-  return diff;
+  return wrapLon(toLon - fromLon);
 }
 
 // Proyeksi azimut berjarak sama (azimuthal equidistant) di sekitar titik acuan: jarak dan arah dari titik acuan
