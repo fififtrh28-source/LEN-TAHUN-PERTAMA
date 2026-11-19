@@ -682,7 +682,9 @@ function toDeg(rad) {
 }
 
 function formatNumber(input, digits) {
-  return Number.isFinite(input) ? input.toFixed(digits).replace(/\.?0+$/, "") : "";
+  if (!Number.isFinite(input)) return "";
+  const s = input.toFixed(digits);
+  return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
 }
 
 function formatAngle(input) {
