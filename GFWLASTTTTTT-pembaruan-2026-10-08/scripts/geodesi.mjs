@@ -26,10 +26,10 @@ export function lonDelta(fromLon, toLon) {
 // dihitung di permukaan bola dengan Turf.js, lalu diubah ke sumbu x (timur) dan y (utara) dalam meter.
 // Filter Kalman bekerja di sumbu meter ini.
 export function projectToMeters(lat, lon, refLat, refLon) {
-  if (lat === refLat && lon === refLon) return { x: 0, y: 0 };
   const from = point([refLon, refLat]);
   const to = point([lon, lat]);
   const d = distance(from, to, { units: "meters" });
+  if (d < 1e-6) return { x: 0, y: 0 };
   const b = toRad(bearing(from, to));
   return { x: d * Math.sin(b), y: d * Math.cos(b) };
 }
@@ -48,7 +48,7 @@ export function interpolatePosition(lat1, lon1, lat2, lon2, factor) {
   const from = point([lon1, lat1]);
   const to = point([lon2, lat2]);
   const d = distance(from, to, { units: "meters" });
-  if (d === 0) return { lat: lat1, lon: Number(wrapLon(lon1).toFixed(6)) };
+  if (d < 1e-6) return { lat: lat1, lon: Number(wrapLon(lon1).toFixed(6)) };  
   const [lon, lat] = destination(from, d * factor, bearing(from, to), { units: "meters" }).geometry.coordinates;
   return { lat, lon: Number(wrapLon(lon).toFixed(6)) };
 }
