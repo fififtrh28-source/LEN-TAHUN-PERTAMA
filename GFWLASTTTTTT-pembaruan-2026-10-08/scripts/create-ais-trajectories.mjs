@@ -19,7 +19,14 @@ const comparisonLinesPath = join(outputDir, "ais_trajectories_raw_vs_kalman.geoj
 const plotDir = join(outputDir, "trajectory_plots_svg");
 const reportPath = join(outputDir, "ais_trajectories_kalman_report.txt");
 
-const { rows } = parseCsv(readFileSync(inputPath, "utf8"));
+let rawInput;
+try {
+  rawInput = readFileSync(inputPath, "utf8");
+} catch (err) {
+  console.error(`Gagal membaca input CSV: ${inputPath} (${err.code ?? err.message})`);
+  process.exit(1);
+}
+const { headers, rows } = parseCsv(rawInput);
 
 const pointHeaders = [
   "MMSI",
@@ -129,14 +136,14 @@ for (const [mmsi, group] of groups) {
   if (group.length < 2) continue;
   const svg = renderTrajectoryComparisonSvg(mmsi, group);
   if (!svg) continue;
-  writeFileSync(join(plotDir, `trajectory_${safeFileName(mmsi)}.svg`), svg, "utf8");
+  writeOutput(join(plotDir, `trajectory_${safeFileName(mmsi)}.svg`), svg);  
   plotsWritten += 1;
 }
 
-writeFileSync(pointsPath, stringifyCsv(pointHeaders, points), "utf8");
-writeFileSync(rawLinesPath, JSON.stringify({ type: "FeatureCollection", features: rawFeatures }, null, 2), "utf8");
-writeFileSync(kalmanLinesPath, JSON.stringify({ type: "FeatureCollection", features: kalmanFeatures }, null, 2), "utf8");
-writeFileSync(comparisonLinesPath, JSON.stringify({ type: "FeatureCollection", features: [...rawFeatures, ...kalmanFeatures] }, null, 2), "utf8");
+writeOutput(pointsPath, stringifyCsv(pointHeaders, points));
+writeOutput(rawLinesPath, JSON.stringify({ type: "FeatureCollection", features: rawFeatures }, null, 2));
+writeOutput(kalmanLinesPath, JSON.stringify({ type: "FeatureCollection", features: kalmanFeatures }, null, 2));
+writeOutput(comparisonLinesPath, JSON.stringify({ type: "FeatureCollection", features: [...rawFeatures, ...kalmanFeatures] }, null, 2));
 
 const report = [
   "AIS trajectory export report",
@@ -162,7 +169,7 @@ const report = [
   "- Single-point MMSI remain in the points CSV but cannot form a trajectory line.",
 ].join("\n");
 
-writeFileSync(reportPath, report, "utf8");
+writeOutput(reportPath, report);
 console.log(report);
 
 function parseCsv(input) {
@@ -444,4 +451,13 @@ function escapeXml(input) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function writeOutput(path, content) {
+  try {
+    writeFileSync(path, content, "utf8");
+  } catch (err) {
+    console.error(`Gagal menulis file: ${path} (${err.code ?? err.message})`);
+    process.exit(1);
+  }
 }
