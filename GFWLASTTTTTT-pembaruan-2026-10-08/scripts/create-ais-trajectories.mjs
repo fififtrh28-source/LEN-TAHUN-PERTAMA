@@ -166,6 +166,7 @@ writeFileSync(reportPath, report, "utf8");
 console.log(report);
 
 function parseCsv(input) {
+  if (input.charCodeAt(0) === 0xFEFF) input = input.slice(1);
   const allRows = [];
   let row = [];
   let field = "";
