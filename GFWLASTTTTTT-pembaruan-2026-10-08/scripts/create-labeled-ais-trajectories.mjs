@@ -1390,16 +1390,26 @@ function firstNonBlank(values) {
 }
 
 function parseArgs(tokens) {
+  const booleanFlags = new Set(["position-only"]);
   const parsed = {};
   for (let i = 0; i < tokens.length; i += 1) {
     const token = tokens[i];
     if (!token.startsWith("--")) continue;
-    const key = token.slice(2);
+    const body = token.slice(2);
+    const eq = body.indexOf("=");
+    if (eq !== -1) {
+      parsed[body.slice(0, eq)] = body.slice(eq + 1);
+      continue;
+    }
+    if (booleanFlags.has(body)) {
+      parsed[body] = true;
+      continue;
+    }
     const next = tokens[i + 1];
     if (next && !next.startsWith("--")) {
-      parsed[key] = next;
+      parsed[body] = next;
       i += 1;
-    } else parsed[key] = true;
+    } else parsed[body] = true;
   }
   return parsed;
 }
