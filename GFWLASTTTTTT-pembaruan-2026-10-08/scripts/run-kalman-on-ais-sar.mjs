@@ -110,6 +110,8 @@ for (const row of rows) {
 }
 
 for (const [mmsi, group] of groups) {
+    // R-075: bidang proyeksi meter dijangkarkan pada pengamatan pertama tiap MMSI. Akurat sekitar 1 m hingga beberapa
+  // ratus km dari titik jangkar; lintasan > 500 km dapat mengalami bias posisi yang tidak terbedakan oleh filter.
   const refLat = group[0].lat;
   const refLon = group[0].lon;
   let state = null;
@@ -248,6 +250,7 @@ const report = [
   `- Process acceleration sigma: ${processAccelerationSigma} m/s^2`,
   `- Position measurement sigma: ${positionMeasurementSigma} m`,
   "- Velocity measurement sigma: 0.75 m/s for existing values; 1.0 m/s for stationary SOG=0; 2.5 m/s for inter-scene AIS lat/lon estimates.",
+  "- Projection: meter plane anchored at the first observation of each MMSI; accurate to about 1 m within a few hundred km, trajectories spanning > 500 km may show position bias.",
 ].join("\n");
 
 writeOutput(reportPath, report);
