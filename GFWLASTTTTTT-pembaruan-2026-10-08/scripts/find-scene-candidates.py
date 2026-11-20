@@ -78,6 +78,7 @@ def haversine_km(lat1, lon1, lat2, lon2) -> pd.Series:
     dlat = (lat2 - lat1).map(math.radians)
     dlon = (lon2 - lon1).map(math.radians)
     a = (dlat / 2).map(math.sin) ** 2 + p1.map(math.cos) * p2.map(math.cos) * (dlon / 2).map(math.sin) ** 2
+    a = a.clip(0.0, 1.0)
     return 2 * r * a.map(lambda x: math.atan2(math.sqrt(x), math.sqrt(1 - x)) if pd.notna(x) else math.nan)
 
 
