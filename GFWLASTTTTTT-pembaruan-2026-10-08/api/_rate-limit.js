@@ -31,10 +31,15 @@ function sanitizePart(value) {
   return String(value || "unknown").replace(/[^a-zA-Z0-9:._-]/g, "_").slice(0, 120);
 }
 
+// Alamat IP pengunjung yang sudah aman dipakai sebagai bagian kunci penghitung (dipakai juga api/auth/login.js, M-017).
+export function clientIpKey(req) {
+  return sanitizePart(getClientIp(req));
+}
+
 // R-010: memakai fixed window (jendela tetap). Di batas jendela klien bisa mengirim hingga 2 × limit dalam waktu
 // singkat; ini diterima karena tujuannya perlindungan kasar terhadap penyalahgunaan, bukan kuota ketat.
 export async function applyRateLimit(req, res, { name, limit, windowSeconds }) {
-  const ip = sanitizePart(getClientIp(req));
+  const ip = clientIpKey(req);
   const bucket = Math.floor(Date.now() / (windowSeconds * 1000));
   const key = `rl:${sanitizePart(name)}:${ip}:${bucket}`;
   let count;
