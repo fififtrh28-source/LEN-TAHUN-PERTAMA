@@ -44,6 +44,16 @@ const sourcePriority = [
   { field: "shipxplorer_imo", source: "ShipXplorer vessel page", urlField: "shipxplorer_source_url" },
 ];
 
+const missingSourceColumns = sourcePriority.map((source) => source.field).filter((field) => !headers.includes(field));
+if (missingSourceColumns.length === sourcePriority.length) {
+  console.warn("Tidak ada satu pun kolom sumber IMO di input; IMO yang kosong akan tetap kosong.");
+} else if (missingSourceColumns.length) {
+  console.warn(`Kolom sumber IMO tidak ditemukan dan dilewati: ${missingSourceColumns.join(", ")}`);
+}
+if (!headers.includes("IMO")) {
+  console.warn("Kolom IMO tidak ada di input; semua baris akan diperlakukan sebagai IMO kosong.");
+}
+
 let alreadyPresent = 0;
 let filled = 0;
 const filledBySource = new Map();
