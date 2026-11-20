@@ -14,6 +14,7 @@ const inputPath = process.argv[2]
 const parsed = parsePath(inputPath);
 const outputPath = join(parsed.dir, `${parsed.base}_kalman_estimated${parsed.ext}`);
 const reportPath = join(parsed.dir, `${parsed.base}_kalman_report.txt`);
+const MAX_PLAUSIBLE_SOG_KNOTS = 100;
 
 const { headers, rows } = parseCsv(readFileSync(inputPath, "utf8"));
 
@@ -244,7 +245,7 @@ console.log(report);
 function velocityMeasurement(row) {
   const sog = number(row.Sog);
   const cog = number(row.Cog);
-  if (!Number.isFinite(sog) || !Number.isFinite(cog) || sog < 0) return null;
+  if (!Number.isFinite(sog) || !Number.isFinite(cog) || sog < 0 || sog > MAX_PLAUSIBLE_SOG_KNOTS) return null;  
   const speed = sog * 0.514444;
   const rad = toRad(((cog % 360) + 360) % 360);
   const source = velocitySource(row);
