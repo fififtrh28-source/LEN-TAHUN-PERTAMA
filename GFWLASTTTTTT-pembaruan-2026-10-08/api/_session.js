@@ -126,11 +126,13 @@ export function clearSessionCookie({ secure } = {}) {
 
 // Logout: ID sesi dicatat sebagai dicabut sampai batas mutlaknya. Pencatatan lintas server membutuhkan Redis
 // (UPSTASH_REDIS_REST_URL/TOKEN); tanpa Redis hanya berlaku di proses yang sama. Cookie di browser tetap dihapus.
+// R-015: mengembalikan true bila pencabutan tersimpan di Redis (berlaku di semua server), false bila hanya di memori.
 export async function revokeSession(payload, now = Date.now()) {
   const { cacheSet } = await import("./_redis.js");
   const ttl = Math.max(1, payload.exp - seconds(now));
-  await cacheSet(`${REVOKED_PREFIX}${payload.sid}`, true, ttl);
+  const shared = await cacheSet(`${REVOKED_PREFIX}${payload.sid}`, true, ttl);
   rememberRevoked(payload.sid);
+  return shared;
 }
 
 function rememberRevoked(sid) {
