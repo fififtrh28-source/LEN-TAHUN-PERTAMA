@@ -1038,48 +1038,6 @@ function rotatePoint(point, rotation) {
   };
 }
 
-function independentAxisViewport(points, frame) {
-  const allX = points.map((point) => point.x);
-  const allY = points.map((point) => point.y);
-  let minX = Math.min(...allX);
-  let maxX = Math.max(...allX);
-  let minY = Math.min(...allY);
-  let maxY = Math.max(...allY);
-  if (maxX - minX < 1) {
-    const center = (minX + maxX) / 2;
-    minX = center - 0.5;
-    maxX = center + 0.5;
-  }
-  if (maxY - minY < 1) {
-    const center = (minY + maxY) / 2;
-    minY = center - 0.5;
-    maxY = center + 0.5;
-  }
-  const xPadding = (maxX - minX) * 0.08;
-  const yPadding = (maxY - minY) * 0.14;
-  minX -= xPadding;
-  maxX += xPadding;
-  minY -= yPadding;
-  maxY += yPadding;
-  return {
-    map(point) {
-      return [
-        frame.x + ((point.x - minX) / (maxX - minX)) * frame.width,
-        frame.y + frame.height - ((point.y - minY) / (maxY - minY)) * frame.height,
-      ];
-    },
-  };
-}
-
-function projectedSpanM(points) {
-  const allX = points.map((point) => point.x);
-  const allY = points.map((point) => point.y);
-  return Math.hypot(
-    Math.max(...allX) - Math.min(...allX),
-    Math.max(...allY) - Math.min(...allY),
-  );
-}
-
 function fitViewport(points, frame, paddingRatio, minimumSpanM) {
   const allX = points.map((point) => point.x);
   const allY = points.map((point) => point.y);
@@ -1116,23 +1074,6 @@ function fitViewport(points, frame, paddingRatio, minimumSpanM) {
       ];
     },
   };
-}
-
-function fixedViewport(center, spanX, spanY, frame) {
-  const minX = center.x - spanX / 2;
-  const minY = center.y - spanY / 2;
-  return {
-    map(point) {
-      return [
-        frame.x + ((point.x - minX) / spanX) * frame.width,
-        frame.y + frame.height - ((point.y - minY) / spanY) * frame.height,
-      ];
-    },
-  };
-}
-
-function insideFrame(x, y, frame) {
-  return x >= frame.x && x <= frame.x + frame.width && y >= frame.y && y <= frame.y + frame.height;
 }
 
 function gridLines(frame, verticalDivisions, horizontalDivisions, className) {
