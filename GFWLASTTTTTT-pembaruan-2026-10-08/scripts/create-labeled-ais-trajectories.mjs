@@ -967,7 +967,7 @@ function selectDistanceSpreadItems(items, maximumPoints) {
 
   const selectedIndexes = new Set();
   for (let i = 0; i < maximumPoints; i += 1) {
-    const targetDistance = (totalDistance * i) / (maximumPoints - 1);
+    const targetDistance = maximumPoints === 1 ? 0 : (totalDistance * i) / (maximumPoints - 1);    
     const nearest = nearestUnusedDistanceIndex(cumulative, targetDistance, selectedIndexes);
     selectedIndexes.add(nearest);
   }
@@ -980,7 +980,7 @@ function selectEvenIndexItems(items, maximumPoints) {
   if (items.length <= maximumPoints) return items;
   const selectedIndexes = new Set();
   for (let i = 0; i < maximumPoints; i += 1) {
-    const targetIndex = Math.round(((items.length - 1) * i) / (maximumPoints - 1));
+    const targetIndex = maximumPoints === 1 ? 0 : Math.round(((items.length - 1) * i) / (maximumPoints - 1));    
     selectedIndexes.add(nearestUnusedIndex(items.length, targetIndex, selectedIndexes));
   }
   return [...selectedIndexes]
