@@ -125,7 +125,7 @@ function loadEnvIfNeeded() {
     const envPath = join(repoRoot, name);
     if (!existsSync(envPath)) continue;
     for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
-      const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+      const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
       if (!match) continue;
       const key = match[1];
       let val = match[2].trim();
