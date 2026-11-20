@@ -592,6 +592,10 @@ async function main() {
     ? args.mmsi.split(",").map(normalizeMmsi).filter(Boolean)
     : allMmsi.slice();
   const allowed = new Set(allMmsi);
+  const skippedMmsi = selectedMmsi.filter((mmsi) => !allowed.has(mmsi));
+  if (skippedMmsi.length) {
+    console.warn(`MMSI berikut tidak ada di file kandidat dan dilewati: ${skippedMmsi.join(", ")}`);
+  }
   selectedMmsi = selectedMmsi.filter((mmsi) => allowed.has(mmsi));
   if (args.limit > 0) selectedMmsi = selectedMmsi.slice(0, args.limit);
 
