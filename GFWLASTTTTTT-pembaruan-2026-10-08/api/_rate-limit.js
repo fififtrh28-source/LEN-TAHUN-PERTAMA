@@ -1,9 +1,10 @@
 import { sendProblem } from "./_problem.js";
 import { incrementWithTtl } from "./_redis.js";
 
+// R-009: Node.js selalu menyimpan nama header dalam huruf kecil, jadi cukup satu pencarian huruf kecil.
 function getHeader(req, name) {
-  const headers = req.headers || {};
-  return headers[name] || headers[name.toLowerCase()] || headers[name.toUpperCase()] || "";
+  const value = (req.headers || {})[name.toLowerCase()];
+  return Array.isArray(value) ? value.join(",") : value || "";
 }
 
 // Alamat IP pengunjung. Header x-forwarded-for / x-real-ip hanya dipercaya di Vercel (diisi Vercel sendiri) atau bila
@@ -30,6 +31,8 @@ function sanitizePart(value) {
   return String(value || "unknown").replace(/[^a-zA-Z0-9:._-]/g, "_").slice(0, 120);
 }
 
+// R-010: memakai fixed window (jendela tetap). Di batas jendela klien bisa mengirim hingga 2 × limit dalam waktu
+// singkat; ini diterima karena tujuannya perlindungan kasar terhadap penyalahgunaan, bukan kuota ketat.
 export async function applyRateLimit(req, res, { name, limit, windowSeconds }) {
   const ip = sanitizePart(getClientIp(req));
   const bucket = Math.floor(Date.now() / (windowSeconds * 1000));
@@ -38,7 +41,8 @@ export async function applyRateLimit(req, res, { name, limit, windowSeconds }) {
   try {
     count = await incrementWithTtl(key, windowSeconds + 5);
   } catch (err) {
-    // Bila penghitung gagal, permintaan tetap dilayani (fail-open) dan kejadiannya dicatat.
+    // M-011: gangguan Redis TIDAK lagi mematikan pembatasan, karena incrementWithTtl (api/_redis.js, K-09) memakai
+    // penghitung memori lokal per proses saat Redis gagal. Blok ini hanya tersisa untuk galat tak terduga.
     console.warn(`[rate-limit] penghitung gagal untuk ${name}, permintaan diloloskan:`, err?.message || err);
     return true;
   }
