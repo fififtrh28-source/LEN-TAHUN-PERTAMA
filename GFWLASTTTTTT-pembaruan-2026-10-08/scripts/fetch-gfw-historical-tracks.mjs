@@ -480,7 +480,8 @@ function parseTrackPoints(json) {
 
 function normalizeTimestamp(value) {
   if (value == null || value === "") return "";
-  if (typeof value === "number") return new Date(value * (value > 10_000_000_000 ? 1 : 1000)).toISOString();
+  // Angka > 1e12 dianggap milidetik (setelah Sep 2001), selain itu detik; sama dengan parseDateish di skrip lain.
+  if (typeof value === "number") return new Date(value * (value > 1e12 ? 1 : 1000)).toISOString();
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
 }
