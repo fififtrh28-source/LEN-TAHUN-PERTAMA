@@ -17,7 +17,14 @@ const reportPath = join(parsed.dir, `${parsed.base}_kalman_report.txt`);
 const MAX_PLAUSIBLE_SOG_KNOTS = 100;
 let singularUpdatesSkipped = 0;
 
-const { headers, rows } = parseCsv(readFileSync(inputPath, "utf8"));
+let rawInput;
+try {
+  rawInput = readFileSync(inputPath, "utf8");
+} catch (err) {
+  console.error(`Gagal membaca input CSV: ${inputPath} (${err.code ?? err.message})`);
+  process.exit(1);
+}
+const { headers, rows } = parseCsv(rawInput);
 
 const addedColumns = [
   "kalman_status",
@@ -201,7 +208,7 @@ for (const row of rows) {
   if (row.kalman_status === "skipped_missing_required_position_or_time") skipped += 1;
 }
 
-writeFileSync(outputPath, stringifyCsv(outputHeaders, rows), "utf8");
+writeOutput(outputPath, stringifyCsv(outputHeaders, rows));
 
 const meanResidual = residuals.length ? residuals.reduce((a, b) => a + b, 0) / residuals.length : NaN;
 const sortedResiduals = residuals.toSorted((a, b) => a - b);
@@ -242,7 +249,7 @@ const report = [
   "- Velocity measurement sigma: 0.75 m/s for existing values; 1.0 m/s for stationary SOG=0; 2.5 m/s for inter-scene AIS lat/lon estimates.",
 ].join("\n");
 
-writeFileSync(reportPath, report, "utf8");
+writeOutput(reportPath, report);
 console.log(report);
 
 function velocityMeasurement(row) {
@@ -510,4 +517,13 @@ function inverse2(m) {
 
 function symmetrize(m) {
   return m.map((row, i) => row.map((value, j) => (value + m[j][i]) / 2));
+}
+
+function writeOutput(path, content) {
+  try {
+    writeFileSync(path, content, "utf8");
+  } catch (err) {
+    console.error(`Gagal menulis file: ${path} (${err.code ?? err.message})`);
+    process.exit(1);
+  }
 }
