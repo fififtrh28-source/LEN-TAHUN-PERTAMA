@@ -15,6 +15,7 @@ const parsed = parsePath(inputPath);
 const outputPath = join(parsed.dir, `${parsed.base}_kalman_estimated${parsed.ext}`);
 const reportPath = join(parsed.dir, `${parsed.base}_kalman_report.txt`);
 const MAX_PLAUSIBLE_SOG_KNOTS = 100;
+let singularUpdatesSkipped = 0;
 
 const { headers, rows } = parseCsv(readFileSync(inputPath, "utf8"));
 
@@ -233,6 +234,8 @@ const report = [
   "- Velocity measurement: SOG/COG only when present in the input row",
   "- SOG/COG is not invented when missing; those rows are updated with position only.",
   "",
+  `Kalman updates skipped (singular innovation matrix): ${singularUpdatesSkipped}`,
+  "",
   "Parameters:",
   `- Process acceleration sigma: ${processAccelerationSigma} m/s^2`,
   `- Position measurement sigma: ${positionMeasurementSigma} m`,
@@ -308,7 +311,15 @@ function kalmanUpdate(state, covariance, measurement, h, r) {
   const ht = transpose(h);
   const innovation = vecSub(measurement, matVecMul(h, state));
   const s = matAdd(matMul(matMul(h, covariance), ht), r);
-  const invS = inverse2(s);
+  let invS;
+  try {
+    invS = inverse2(s);
+  } catch (err) {
+    singularUpdatesSkipped += 1;
+    console.warn(`Kalman: matriks inovasi singular, pengukuran dilewati (${err.message})`);
+    return { state, covariance };
+  }
+
   const k = matMul(matMul(covariance, ht), invS);
   const updatedState = vecAdd(state, matVecMul(k, innovation));
   const kh = matMul(k, h);
