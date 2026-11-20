@@ -199,8 +199,8 @@ for (const track of outputTrackParts) {
           ? `Kalman is calculated on all ${sourcePointCount} ordered observations in this continuous track part. The SVG overview uses the full track, while the detail and CSV export use ${track.items.length} contiguous real observations from source sequence ${selectionStart}-${selectionEnd}, selected with ${sequenceSelectionStrategy}. No interpolation or synthetic points were added.`
           : `AIS input and Kalman use all ${track.items.length} available real sequence points because this track has no more than the ${sequenceLimitPerTrack}-sequence limit. No interpolation or synthetic points were added.`
       )
-      : `AIS input and Kalman use and display all ${track.items.length} timestamped points. The SVG magnifies only the visual AIS-to-Kalman residual and labels its factor; CSV/GeoJSON coordinates remain original. No interpolation, point limiting, or synthetic points were added.`;
-
+      : `AIS input and Kalman use and display all ${track.items.length} timestamped points. Coordinates are not magnified; the residual chart reports the AIS-to-Kalman difference directly in meters. CSV/GeoJSON coordinates remain original. No interpolation, point limiting, or synthetic points were added.`;
+    
     rawFeatures.push(lineFeature(track, stats, "ais_input", track.items.map((item) => [item.lon, item.lat])));
     kalmanFeatures.push(
       lineFeature(
@@ -1161,7 +1161,7 @@ function renderGallery(bestSummaries) {
         ? `Setiap gambar berisi overview MMSI penuh, detail maksimum ${sequenceLimitPerTrack} observasi kontinu, dan grafik selisih AIS-Kalman dalam meter. Kalman dihitung lebih dahulu pada seluruh urutan MMSI; koordinat tidak dimagnifikasi atau diinterpolasi.`
         : `Setiap gambar berisi overview lintasan kontinu, detail maksimum ${sequenceLimitPerTrack} observasi berurutan, dan grafik selisih AIS-Kalman dalam meter. Kalman dihitung lebih dahulu pada seluruh track part; koordinat tidak dimagnifikasi atau diinterpolasi.`
     )
-    : "Merah adalah seluruh input AIS mentah dan biru adalah seluruh hasil Kalman. Semua titik digunakan. Karena lintasan kapal jauh lebih panjang daripada koreksi Kalman, selisih merah-biru dimagnifikasi otomatis pada SVG dan faktor pembesarannya tertulis pada gambar. CSV dan GeoJSON tetap menyimpan koordinat asli tanpa perubahan.";
+    : "Merah adalah seluruh input AIS mentah dan biru adalah seluruh hasil Kalman. Semua titik digunakan; koordinat tidak dimagnifikasi atau diinterpolasi. CSV dan GeoJSON menyimpan koordinat asli tanpa perubahan.";    
   const cards = bestSummaries
     .map(
       (row) => `      <article>
