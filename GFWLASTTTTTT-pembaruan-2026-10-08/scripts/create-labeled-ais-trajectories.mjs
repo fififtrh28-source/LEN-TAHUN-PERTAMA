@@ -492,7 +492,8 @@ function makeMmsiTrackPart(mmsi, items) {
 
 function limitTrackForSequenceExport(track, maximumPoints) {
   const selected = selectSequenceItems(track.items, maximumPoints, sequenceSelectionStrategy);
-  const selectedSourceIndexes = selected.map((item) => track.items.indexOf(item) + 1);
+  const indexByItem = new Map(track.items.map((item, index) => [item, index]));
+  const selectedSourceIndexes = selected.map((item) => indexByItem.get(item) + 1);
   const startIndex = Math.min(...selectedSourceIndexes) - 1;
   const endIndex = Math.max(...selectedSourceIndexes) - 1;
   const clonedItems = selected.map((item, index) => ({
