@@ -204,6 +204,18 @@ function appendCsv(path, headers, rows) {
   appendFileSync(path, rows.map((row) => csvLine(headers, row)).join(""), "utf8");
 }
 
+function mmsiInCsv(path) {
+  if (!existsSync(path)) return new Set();
+  return new Set(parseCsv(readFileSync(path, "utf8")).rows.map((row) => normalizeMmsi(row.MMSI)));
+}
+
+function removeMmsiRows(path, headers, mmsi) {
+  if (!existsSync(path)) return;
+  const parsed = parseCsv(readFileSync(path, "utf8"));
+  const kept = parsed.rows.filter((row) => normalizeMmsi(row.MMSI) !== mmsi);
+  writeFileSync(path, headers.join(",") + "\n" + kept.map((row) => csvLine(headers, row)).join(""), "utf8");
+}
+
 function normalizeMmsi(value) {
   return String(value ?? "").trim().replace(/\.0$/, "");
 }
@@ -572,6 +584,7 @@ async function main() {
   const paths = outputPaths(args);
   ensureCsv(paths.tracks, TRACK_HEADERS);
   ensureCsv(paths.report, REPORT_HEADERS);
+  const mmsiWithRows = new Set([...mmsiInCsv(paths.tracks), ...mmsiInCsv(paths.report)]);
 
   const allMmsi = uniqueCandidateMmsi(args.candidates);
   let selectedMmsi = args.mmsi
@@ -603,10 +616,15 @@ async function main() {
 
     console.log(`[${index + 1}/${selectedMmsi.length}] MMSI ${mmsi} fetching...`);
     const { report, trackRows } = await processMmsi(mmsi, token, args);
-    progress.mmsi[mmsi] = report;
-    saveProgress(paths.progress, progress);
+    if (mmsiWithRows.has(mmsi)) {
+      removeMmsiRows(paths.tracks, TRACK_HEADERS, mmsi);
+      removeMmsiRows(paths.report, REPORT_HEADERS, mmsi);
+      mmsiWithRows.delete(mmsi);
+    }
     appendCsv(paths.tracks, TRACK_HEADERS, trackRows);
     appendCsv(paths.report, REPORT_HEADERS, [report]);
+    progress.mmsi[mmsi] = report;
+    saveProgress(paths.progress, progress);
     console.log(
       `[${index + 1}/${selectedMmsi.length}] MMSI ${mmsi} search=${report.search_status} track=${report.track_status} points=${report.point_count}`
     );
