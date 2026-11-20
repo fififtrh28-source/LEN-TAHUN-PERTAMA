@@ -1181,7 +1181,6 @@ function renderGallery(bestSummaries) {
     body { margin: 0; padding: 24px; font-family: Arial, sans-serif; background: #eef5fb; color: #102a43; }
     h1 { margin-top: 0; }
     .note { max-width: 1100px; line-height: 1.5; }
-    .note + .note { display: none; }
     article { margin: 24px 0; padding: 18px; background: white; border: 1px solid #aac7df; border-radius: 12px; box-shadow: 0 4px 16px #315b7d1a; }
     article h2 { margin: 0 0 6px; }
     article p { margin: 0 0 14px; }
@@ -1191,8 +1190,7 @@ function renderGallery(bestSummaries) {
 <body>
   <h1>Best labeled AIS trajectory examples</h1>
   <p class="note">${escapeHtml(note)}</p>
-  <p class="note">Merah adalah seluruh input AIS mentah dan biru adalah seluruh hasil Kalman. Semua titik digunakan. Karena lintasan kapal jauh lebih panjang daripada koreksi Kalman, selisih merah–biru dimagnifikasi otomatis pada SVG dan faktor pembesarannya tertulis pada gambar. CSV dan GeoJSON tetap menyimpan koordinat asli tanpa perubahan.</p>
-${cards}
+  ${cards}
 </body>
 </html>
 `;
