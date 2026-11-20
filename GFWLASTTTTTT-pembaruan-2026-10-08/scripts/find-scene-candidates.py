@@ -73,14 +73,13 @@ def haversine_km(lat1, lon1, lat2, lon2) -> pd.Series:
     lon2 = to_num(lon2)
 
     r = 6371.0088
-    p1 = lat1.map(math.radians)
-    p2 = lat2.map(math.radians)
-    dlat = (lat2 - lat1).map(math.radians)
-    dlon = (lon2 - lon1).map(math.radians)
-    a = (dlat / 2).map(math.sin) ** 2 + p1.map(math.cos) * p2.map(math.cos) * (dlon / 2).map(math.sin) ** 2
+    p1 = np.radians(lat1)
+    p2 = np.radians(lat2)
+    dlat = np.radians(lat2 - lat1)
+    dlon = np.radians(lon2 - lon1)
+    a = np.sin(dlat / 2) ** 2 + np.cos(p1) * np.cos(p2) * np.sin(dlon / 2) ** 2
     a = a.clip(0.0, 1.0)
-    return 2 * r * a.map(lambda x: math.atan2(math.sqrt(x), math.sqrt(1 - x)) if pd.notna(x) else math.nan)
-
+    return 2 * r * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
 def scene_time(scene: object) -> str:
     match = re.search(r"_(\d{8}T\d{6})_", str(scene))
