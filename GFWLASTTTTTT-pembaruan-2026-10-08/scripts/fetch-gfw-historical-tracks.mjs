@@ -515,7 +515,7 @@ async function processMmsi(mmsi, token, args) {
       start_date: args.startDate,
       end_date: args.endDate,
       fetched_at_utc: new Date().toISOString(),
-      done: true,
+      done: !search.search_status.startsWith("search_"),      
     };
     return { report, trackRows: [] };
   }
@@ -548,7 +548,7 @@ async function processMmsi(mmsi, token, args) {
     start_date: args.startDate,
     end_date: args.endDate,
     fetched_at_utc: new Date().toISOString(),
-    done: true,
+    done: ["track_success", "track_empty", "track_not_found"].includes(track.track_status),    
   };
   return { report, trackRows };
 }
