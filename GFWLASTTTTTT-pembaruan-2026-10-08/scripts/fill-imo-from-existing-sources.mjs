@@ -14,7 +14,14 @@ const outputPath = join(parsed.dir, `${parsed.base}_imo_enriched${parsed.ext}`);
 const stillMissingPath = join(parsed.dir, `${parsed.base}_still_missing_imo${parsed.ext}`);
 const reportPath = join(parsed.dir, `${parsed.base}_imo_enriched_report.txt`);
 
-const { headers, rows } = parseCsv(readFileSync(inputPath, "utf8"));
+let rawInput;
+try {
+  rawInput = readFileSync(inputPath, "utf8");
+} catch (err) {
+  console.error(`Gagal membaca input CSV: ${inputPath} (${err.code ?? err.message})`);
+  process.exit(1);
+}
+const { headers, rows } = parseCsv(rawInput);
 
 const addedColumns = [
   "IMO_original",
@@ -82,8 +89,8 @@ for (const row of rows) {
 }
 
 const missingRows = rows.filter((row) => !validImo(row.IMO));
-writeFileSync(outputPath, stringifyCsv(outputHeaders, rows), "utf8");
-writeFileSync(stillMissingPath, stringifyCsv(outputHeaders, missingRows), "utf8");
+writeOutput(outputPath, stringifyCsv(outputHeaders, rows));
+writeOutput(stillMissingPath, stringifyCsv(outputHeaders, missingRows));
 
 const report = [
   "IMO enrichment report",
@@ -108,7 +115,7 @@ const report = [
   "- Rows without a valid source are left blank; no IMO is guessed from vessel name/MMSI.",
 ].join("\n");
 
-writeFileSync(reportPath, report, "utf8");
+writeOutput(reportPath, report);
 console.log(report);
 
 function parsePath(path) {
@@ -208,4 +215,13 @@ function normalizeImo(input) {
 
 function validImo(input) {
   return /^\d{7}$/.test(normalizeImo(input));
+}
+
+function writeOutput(path, content) {
+  try {
+    writeFileSync(path, content, "utf8");
+  } catch (err) {
+    console.error(`Gagal menulis file: ${path} (${err.code ?? err.message})`);
+    process.exit(1);
+  }
 }
