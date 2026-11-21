@@ -203,9 +203,14 @@
 
   // Hanya status dan catatan yang disimpan; data kapalnya tetap dari file.
   function saveAnomalies(records) {
-    const statuses = {};
+    const statuses = readStatuses();
     (Array.isArray(records) ? records : []).forEach((record) => {
-      if (record.status && record.status !== "New") statuses[record.id] = { status: record.status, remarks: record.remarks };
+      if (!record || !record.id) return;
+      if (record.status && record.status !== "New") {
+        statuses[record.id] = { status: record.status, remarks: record.remarks };
+      } else {
+        delete statuses[record.id];
+      }
     });
     write(STATUS_KEY, statuses);
   }
