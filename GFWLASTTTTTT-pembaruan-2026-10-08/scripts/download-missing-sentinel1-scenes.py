@@ -462,7 +462,8 @@ def main() -> int:
                         f"  {product.filename} | {human_size(product.expected_bytes)}"
                     )
                 else:
-                    assert session is not None
+                    if session is None:
+                        raise RuntimeError("Sesi ASF belum dibuat; tidak bisa mengunduh tanpa login.")
                     status, local_bytes = download_product(
                         product=product,
                         dest=args.dest,
