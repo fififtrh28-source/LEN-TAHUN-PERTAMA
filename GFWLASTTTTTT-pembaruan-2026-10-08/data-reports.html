@@ -30,7 +30,9 @@
       </div>
 
       <button class="onx-logout-button" type="button" data-onx-logout title="Sign out of Ocean Nexus (ends the login session)">Sign out</button>
-
+      <noscript>
+        <form method="post" action="/api/auth/logout"><button class="onx-logout-button" type="submit">Sign out</button></form>
+      </noscript>
       <div class="onx-topbar-spacer"></div>
 
       <button class="onx-icon-button" type="button" aria-label="Notifications">
