@@ -1333,6 +1333,15 @@ body.onx-light {
   background: #ffffff;
 }
 
+.onx-light .onx-icon-button:focus-visible,
+.onx-light .onx-menu-button:focus-visible,
+.onx-light .onx-tabs button:focus-visible,
+.onx-light .onx-button:focus-visible,
+.onx-light .onx-page-btn:focus-visible,
+.onx-light .onx-close:focus-visible {
+  outline-color: #075f92;
+}
+
 .onx-light .onx-alert-preview {
   margin: 16px 20px;
   border: 1px solid #d9e4ee;
