@@ -569,6 +569,8 @@ a {
 .onx-detail {
   position: sticky;
   top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
 }
 
 .onx-detail-body {
@@ -948,6 +950,8 @@ a {
 .onx-preview {
   position: sticky;
   top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
 }
 
 .onx-preview-body {
@@ -1052,8 +1056,10 @@ a {
   .onx-detail,
   .onx-preview {
     position: static;
+    max-height: none;
+    overflow: hidden;
   }
-
+  
   .onx-filter-panel,
   .onx-filter-panel.is-reports {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
