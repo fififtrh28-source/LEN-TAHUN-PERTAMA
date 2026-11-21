@@ -135,7 +135,12 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
           <td data-status-slot></td>
         </tr>
       `).join("");
-      elements.tableBody.querySelectorAll("[data-status-slot]").forEach((cell, i) => cell.append(createStatusBadge(rows[i].status)));
+      const byId = new Map(rows.map((record) => [record.id, record]));
+      elements.tableBody.querySelectorAll("tr[data-id]").forEach((tr) => {
+        const record = byId.get(tr.dataset.id);
+        const cell = tr.querySelector("[data-status-slot]");
+        if (record && cell) cell.append(createStatusBadge(record.status));
+      });   
     }
 
     renderPagination(elements.pagination, {
@@ -303,7 +308,7 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
       elements.downloadPdf.disabled = false;
     }
   }
-  
+
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
