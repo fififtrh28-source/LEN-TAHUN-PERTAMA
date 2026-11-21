@@ -1,3 +1,14 @@
+function showLoadError() {
+  const note = document.getElementById("data-source-note");
+  if (note && !note.dataset.error) {
+    note.dataset.error = "1";
+    note.textContent = "Some page data failed to load. Please reload the page.";
+    note.setAttribute("role", "alert");
+  }
+}
+window.addEventListener("error", showLoadError);
+window.addEventListener("unhandledrejection", showLoadError);
+
 import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
 
 (function () {
