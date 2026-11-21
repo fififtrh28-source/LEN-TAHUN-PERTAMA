@@ -4,8 +4,10 @@
   // (INTEGRATION_DATA_FILES.candidates), ditambah bendera dan IMO kapal dari file metadata penelitian.
   // Tidak ada data contoh di sini. Yang disimpan di browser hanya status tiap temuan (New / Reviewed / Sent)
   // dan riwayat alert; data kapalnya selalu dibaca ulang dari file.
-  const CANDIDATES_URL = "KAPAL YG TERDETEKSI/scene_candidates_godark_spoofing_transshipment.csv";
-  const METADATA_URL = "new/metadata/metadata_with_vh_gfw_ais_identity_sog_cog_enriched_FINAL_kalman_estimated.csv";
+  // Path data bisa ditimpa tanpa mengubah file ini: <script>window.ONX_DATA_CONFIG = { candidatesUrl: "...", metadataUrl: "..." }</script>
+  const DATA_CONFIG = window.ONX_DATA_CONFIG || {};
+  const CANDIDATES_URL = DATA_CONFIG.candidatesUrl || "KAPAL YG TERDETEKSI/scene_candidates_godark_spoofing_transshipment.csv";
+  const METADATA_URL = DATA_CONFIG.metadataUrl || "new/metadata/metadata_with_vh_gfw_ais_identity_sog_cog_enriched_FINAL_kalman_estimated.csv";
   const STATUS_KEY = "ocean-nexus-anomaly-status-v2";
   const HISTORY_KEY = "ocean-nexus-alert-history-v2";
   // Kunci lama berisi data contoh; dibuang supaya tidak pernah tampil lagi.
@@ -123,7 +125,7 @@
       clearTimeout(timer);
     }
   }
-    
+
   async function load() {
     OLD_KEYS.forEach((key) => { try { localStorage.removeItem(key); } catch (error) { /* abaikan */ } });
     try {
