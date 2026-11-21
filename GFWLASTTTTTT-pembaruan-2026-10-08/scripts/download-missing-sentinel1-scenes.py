@@ -280,8 +280,6 @@ def human_size(num_bytes: int | None) -> str:
         if value < 1024 or unit == "TB":
             return f"{value:.1f} {unit}"
         value /= 1024
-    return f"{num_bytes} B"
-
 
 def download_product(
     product: Product,
