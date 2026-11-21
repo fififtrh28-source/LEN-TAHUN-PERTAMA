@@ -481,13 +481,16 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
             bytes: base64ToBytes(dataUrl.split(",")[1]),
           });
         } catch (error) {
+          console.warn("[data-reports] gambar tidak bisa diproses untuk PDF, dilewati:", src, error);
           resolve(null);
         }
       };
       image.onerror = () => {
         clearTimeout(timer);
+        console.warn("[data-reports] gambar gagal dimuat untuk PDF, dilewati:", src);
         resolve(null);
       };
+
       image.src = src;
     });
   }
