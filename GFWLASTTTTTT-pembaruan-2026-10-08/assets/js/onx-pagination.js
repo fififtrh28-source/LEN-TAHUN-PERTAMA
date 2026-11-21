@@ -5,11 +5,14 @@ export const PAGE_SIZE = 10;
 // Nomor yang ditampilkan: halaman pertama, terakhir, dan sekitar halaman yang dibuka; sisanya diringkas "…".
 function pageList(page, maxPage) {
   if (maxPage <= 7) return Array.from({ length: maxPage }, (_, index) => index + 1);
-  const near = page <= 4
-    ? [1, 2, 3, 4, 5]
-    : page >= maxPage - 3
-      ? [maxPage - 4, maxPage - 3, maxPage - 2, maxPage - 1, maxPage]
-      : [page - 1, page, page + 1];
+  let near;
+  if (page <= 4) {
+    near = [1, 2, 3, 4, 5];
+  } else if (page >= maxPage - 3) {
+    near = [maxPage - 4, maxPage - 3, maxPage - 2, maxPage - 1, maxPage];
+  } else {
+    near = [page - 1, page, page + 1];
+  }      
   const pages = [...new Set([1, ...near, maxPage])].sort((a, b) => a - b);
   const list = [];
   pages.forEach((value, index) => {
