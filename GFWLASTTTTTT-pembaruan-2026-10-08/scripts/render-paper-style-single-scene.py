@@ -259,8 +259,9 @@ def render(args: argparse.Namespace) -> Path:
     raster_path = f"/vsizip/{zip_path.resolve().as_posix()}/{measurement}"
 
     with rasterio.open(raster_path) as src:
-        if not src.gcps[0]:
-            raise RuntimeError(f"{zip_path.name} has no GCP geolocation.")
+        gcp_list, _gcp_crs = src.gcps  # rasterio: src.gcps = (daftar GCP, CRS), bukan daftar langsung
+        if not gcp_list:
+            raise RuntimeError(f"{zip_path.name} has no GCP geolocation.")        
         image, lon_grid, lat_grid, footprint = display_image(src, args.max_size)
 
     xs = [p[0] for p in footprint]
