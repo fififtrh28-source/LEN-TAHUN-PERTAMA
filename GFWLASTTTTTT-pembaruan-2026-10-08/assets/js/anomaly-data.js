@@ -106,15 +106,24 @@
     return dist ? `SAR-AIS ${dist} km` : "Position mismatch";
   }
 
-  async function fetchText(url) {
-    const response = await fetch(encodeURI(url));
-    if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-    const text = await response.text();
-    // Situs yang tayang mengembalikan halaman depan untuk alamat yang tidak ada; itu bukan CSV.
-    if (/^\s*<!doctype html|^\s*<html/i.test(text)) throw new Error(`${url}: file not found`);
-    return text;
+  async function fetchText(url, timeoutMs = 30000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(encodeURI(url), { signal: controller.signal });
+      if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+      const text = await response.text();
+      // Situs yang tayang mengembalikan halaman depan untuk alamat yang tidak ada; itu bukan CSV.
+      if (/^\s*<!doctype html|^\s*<html/i.test(text)) throw new Error(`${url}: file not found`);
+      return text;
+    } catch (error) {
+      if (error?.name === "AbortError") throw new Error(`${url}: timeout after ${timeoutMs / 1000} s`);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
-
+    
   async function load() {
     OLD_KEYS.forEach((key) => { try { localStorage.removeItem(key); } catch (error) { /* abaikan */ } });
     try {
