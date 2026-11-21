@@ -292,10 +292,18 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
   async function downloadReportPdf() {
     const records = state.reportRecords.length ? state.reportRecords : getReportRecords();
     if (!records.length) return;
-    const blob = await createPdfBlob(records);
-    downloadBlob(blob, "ocean-nexus-vessel-anomaly-report.pdf");
+    elements.downloadPdf.disabled = true;
+    try {
+      const blob = await createPdfBlob(records);
+      downloadBlob(blob, "ocean-nexus-vessel-anomaly-report.pdf");
+    } catch (error) {
+      console.error("[data-reports] gagal membuat PDF:", error);
+      alert("Failed to create the PDF report. Please try again.");
+    } finally {
+      elements.downloadPdf.disabled = false;
+    }
   }
-
+  
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
