@@ -214,9 +214,10 @@ def plot_points(ax: plt.Axes, rows: pd.DataFrame, traj: pd.DataFrame) -> None:
     sar_lat = pd.to_numeric(rows["Center_latitude"], errors="coerce")
     ais_lon = pd.to_numeric(rows["AIS_Longitude"], errors="coerce")
     ais_lat = pd.to_numeric(rows["AIS_Latitude"], errors="coerce")
-    kal_lon = pd.to_numeric(rows.get("kalman_est_lon"), errors="coerce")
-    kal_lat = pd.to_numeric(rows.get("kalman_est_lat"), errors="coerce")
-
+    empty_col = pd.Series(float("nan"), index=rows.index, dtype=float)
+    kal_lon = pd.to_numeric(rows["kalman_est_lon"], errors="coerce") if "kalman_est_lon" in rows.columns else empty_col
+    kal_lat = pd.to_numeric(rows["kalman_est_lat"], errors="coerce") if "kalman_est_lat" in rows.columns else empty_col
+    
     if not traj.empty and {"ais_lon", "ais_lat"}.issubset(traj.columns):
         ax.scatter(
             pd.to_numeric(traj["ais_lon"], errors="coerce"),
