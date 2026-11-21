@@ -1762,11 +1762,13 @@
       });
     });
         
-    document.getElementById("toggle-password").addEventListener("click", () => {
+    document.getElementById("toggle-password").addEventListener("click", (event) => {
       const password = document.getElementById("password");
-      password.type = password.type === "password" ? "text" : "password";
+      const showing = password.type === "password";
+      password.type = showing ? "text" : "password";
+      event.currentTarget.setAttribute("aria-label", showing ? "Hide password" : "Show password");
     });
-
+    
     // Nama pengguna dan kata sandi diperiksa di server (api/auth/login.js); kode halaman ini tidak menyimpannya.
     document.getElementById("login-form").addEventListener("submit", async (event) => {
       event.preventDefault();
