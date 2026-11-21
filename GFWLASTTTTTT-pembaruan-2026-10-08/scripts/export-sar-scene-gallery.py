@@ -13,7 +13,6 @@ import argparse
 import html
 import math
 import re
-import shutil
 import textwrap
 from pathlib import Path
 
