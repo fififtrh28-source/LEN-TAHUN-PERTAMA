@@ -212,8 +212,8 @@
       <pre class="onx-alert-preview" id="telegram-preview"></pre>
       <div class="onx-modal-body">
         <div class="onx-field">
-          <label>Send To</label>
-          <input value="Ocean Nexus Alert Group" readonly>
+          <label for="telegram-send-to">Send To</label>
+          <input id="telegram-send-to" value="Ocean Nexus Alert Group" readonly aria-readonly="true">          
         </div>
         <div class="onx-checkbox">
           <span>Options</span>
@@ -221,7 +221,7 @@
           <label><input type="checkbox" checked> Include key details</label>
         </div>
         <div class="onx-modal-actions">
-          <a class="onx-button" href="https://web.telegram.org/a/" target="_blank" rel="noopener">Open Telegram Group</a>
+          <a class="onx-button" href="https://web.telegram.org/a/" target="_blank" rel="noopener noreferrer" title="Simulation: opens Telegram Web, not a specific group">Open Telegram Web</a>         
           <button class="onx-button" id="cancel-telegram-alert" type="button">Cancel</button>
           <button class="onx-button is-primary" id="send-telegram-alert" type="button">Send Alert</button>
         </div>
