@@ -7,10 +7,12 @@
   document.addEventListener("click", async (event) => {
     const logout = event.target.closest?.("[data-onx-logout]");
     if (!logout) return;
+    const logoutUrl = logout.dataset.logoutUrl || "/api/auth/logout";
+    const signedOutUrl = logout.dataset.signedOutUrl || "/index.html?keluar=1";
     logout.disabled = true;
     let ok = false;
     try {
-      const response = await fetch("/api/auth/logout", { method: "POST" });
+      const response = await fetch(logoutUrl, { method: "POST" });      
       const body = await response.json().catch(() => null);
       ok = response.ok && body?.ok === true;
       if (!ok) console.warn("[onx-nav] logout ditolak server:", response.status, body);
@@ -27,7 +29,7 @@
     } catch (error) {
       // penyimpanan diblokir: abaikan
     }
-    location.replace("/index.html?keluar=1");    
+    location.replace(signedOutUrl);    
   });
 
   document.addEventListener("DOMContentLoaded", () => {
