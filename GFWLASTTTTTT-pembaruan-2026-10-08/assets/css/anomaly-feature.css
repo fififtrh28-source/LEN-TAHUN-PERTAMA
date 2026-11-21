@@ -169,6 +169,17 @@ a {
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* M-044 / C-5: penanda fokus keyboard untuk semua tombol interaktif. */
+.onx-icon-button:focus-visible,
+.onx-menu-button:focus-visible,
+.onx-tabs button:focus-visible,
+.onx-button:focus-visible,
+.onx-page-btn:focus-visible,
+.onx-close:focus-visible {
+  outline: 2px solid #8fdcff;
+  outline-offset: 2px;
+}
+
 /* Tombol tiga garis di sebelah logo: menampilkan / menyembunyikan menu samping (assets/js/onx-nav.js). */
 .onx-menu-button {
   flex: 0 0 auto;
