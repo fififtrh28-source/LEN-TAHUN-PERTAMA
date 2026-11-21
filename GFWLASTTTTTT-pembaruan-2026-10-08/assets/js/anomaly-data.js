@@ -144,7 +144,7 @@
         if (!Number.isFinite(lat) || !Number.isFinite(lon) || !when) continue;
         // Kunci yang sama dengan dashboard peta, supaya jumlah temuannya persis sama.
         const mmsi = normId(row.MMSI);
-        const id = `${row.scene}|${row.MMSI}|${row.candidate_type}|${lat.toFixed(5)}|${lon.toFixed(5)}`;
+        const id = `${row.scene}|${mmsi}|${row.candidate_type}|${lat.toFixed(5)}|${lon.toFixed(5)}`;       
         if (seen.has(id)) continue;
         seen.add(id);
         const who = identity.get(mmsi) || {};
