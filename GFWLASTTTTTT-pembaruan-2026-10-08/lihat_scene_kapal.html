@@ -55,6 +55,14 @@
       border: 0;
       background: #000;
     }    
+        .scene-error {
+      margin: 12px 16px;
+      padding: 10px 12px;
+      border: 1px solid #ef4444;
+      border-radius: 6px;
+      background: #3f1d1d;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
@@ -67,16 +75,41 @@
       <a data-scene-file="HASIL_SCENE_KAPAL_TANPA_KETERANGAN/{scene}_sar_clean_no_annotation.png" target="scene">SAR polos</a>
     </nav>
   </header>
+  <p id="scene-error" class="scene-error" role="alert" hidden></p>
   <iframe name="scene" title="Scene Sentinel-1"></iframe>
   <script>
     // R-042: untuk ganti scene, cukup ubah SCENE di bawah ini.
     const SCENE = "S1A_IW_GRDH_1SDV_20260215T104128_20260215T104157_063228_07F03A_350C_vv";
     const BASE = "KAPAL%20YG%20TERDETEKSI/";
     const sceneUrl = (pattern) => BASE + pattern.replace("{scene}", SCENE);
+    const frame = document.querySelector("iframe[name='scene']");
+    const errorBox = document.getElementById("scene-error");
+
+    // R-043: cek dulu file-nya ada; kalau tidak, tampilkan pesan, bukan iframe hitam kosong.
+    async function openScene(url) {
+      errorBox.hidden = true;
+      if (location.protocol !== "file:") {
+        try {
+          const response = await fetch(url, { method: "HEAD" });
+          if (!response.ok) throw new Error("HTTP " + response.status);
+        } catch (error) {
+          errorBox.textContent = "File scene tidak ditemukan: " + decodeURIComponent(url) + " (" + error.message + ")";
+          errorBox.hidden = false;
+          frame.removeAttribute("src");
+          return;
+        }
+      }
+      frame.src = url;
+    }
+
     document.querySelectorAll("a[data-scene-file]").forEach((link) => {
       link.href = sceneUrl(link.dataset.sceneFile);
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        openScene(link.href);
+      });
     });
-    document.querySelector("iframe[name='scene']").src = sceneUrl("SENTINEL1_SCENE_MAPS/{scene}_interactive.html");
-  </script>  
+    openScene(sceneUrl("SENTINEL1_SCENE_MAPS/{scene}_interactive.html"));
+  </script>
 </body>
 </html>
