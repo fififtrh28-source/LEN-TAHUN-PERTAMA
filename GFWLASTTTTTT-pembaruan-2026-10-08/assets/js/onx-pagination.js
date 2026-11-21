@@ -2,6 +2,7 @@
 // "Showing 1 to 10 of 365 entries" di kiri, tombol nomor halaman di kanan.
 export const PAGE_SIZE = 10;
 function esc(value) {
+  const clickHandlers = new WeakMap();
   return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 }
 
@@ -42,10 +43,14 @@ export function renderPagination(container, { page, total, perPage = PAGE_SIZE, 
       ${arrows ? button("›", page + 1, { disabled: page >= maxPage, title: "Next page" }) : ""}      
     </div>`;
 
-  container.onclick = (event) => {
+  const previous = clickHandlers.get(container);
+  if (previous) container.removeEventListener("click", previous);
+  const handler = (event) => {
     const target = event.target.closest("button[data-page]");
     if (!target || target.disabled) return;
     const next = Number(target.dataset.page);
     if (next >= 1 && next <= maxPage && next !== page) onPage(next);
   };
+  clickHandlers.set(container, handler);
+  container.addEventListener("click", handler);
 }
