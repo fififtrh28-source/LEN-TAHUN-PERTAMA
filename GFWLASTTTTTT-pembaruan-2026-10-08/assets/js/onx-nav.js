@@ -10,9 +10,9 @@
     logout.disabled = true;
     let ok = false;
     try {
-      const response = await fetch("/api/auth/logout", { method: "POST" });
-      ok = response.ok;
-      if (!ok) console.warn("[onx-nav] logout ditolak server:", response.status);
+      const body = await response.json().catch(() => null);
+      ok = response.ok && body?.ok === true;
+      if (!ok) console.warn("[onx-nav] logout ditolak server:", response.status, body);
     } catch (error) {
       console.warn("[onx-nav] logout gagal:", error);
     }
