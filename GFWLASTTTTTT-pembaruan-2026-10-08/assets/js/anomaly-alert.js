@@ -479,7 +479,7 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
     });
 
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeAlertPreview();
+      if (event.key === "Escape" && elements.modal.classList.contains("is-open")) closeAlertPreview();      
     });
   }
 
