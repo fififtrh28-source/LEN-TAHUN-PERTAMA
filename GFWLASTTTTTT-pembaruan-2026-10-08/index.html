@@ -1202,9 +1202,9 @@
             <strong>OCEAN NEXUS 2026</strong>
           </a>
           <div class="partner-logos" aria-label="Partner logos">
-            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak">
+            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN">
+            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember">
           </div>
           <nav class="nav-links" aria-label="Welcome navigation">
             <button type="button" data-modal="about" data-i18n="nav.about">About</button>
@@ -1260,9 +1260,9 @@
             <strong>OCEAN NEXUS 2026</strong>
           </a>
           <div class="partner-logos" aria-label="Partner logos">
-            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak">
+            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN">
+            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember">
           </div>
         </header>
         <div class="login-copy">
@@ -1339,9 +1339,9 @@
             <strong>OCEAN NEXUS 2026</strong>
           </a>
           <div class="partner-logos" aria-label="Partner logos">
-            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak">
+            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN">
+            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember">
           </div>
           <nav class="nav-links" aria-label="Option navigation">
             <button type="button" data-go="0" data-i18n="nav.home">Home</button>
@@ -1744,6 +1744,15 @@
 
     document.addEventListener("click", closeLanguageMenus);
 
+    document.querySelectorAll(".partner-logos").forEach((container) => {
+      container.addEventListener("error", (event) => {
+        if (event.target.classList?.contains("partner-logo")) event.target.classList.add("is-missing");
+      }, true);
+      container.querySelectorAll(".partner-logo").forEach((img) => {
+        if (img.complete && img.naturalWidth === 0) img.classList.add("is-missing");
+      });
+    });
+        
     document.getElementById("toggle-password").addEventListener("click", () => {
       const password = document.getElementById("password");
       password.type = password.type === "password" ? "text" : "password";
