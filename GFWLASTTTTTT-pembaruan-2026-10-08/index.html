@@ -1466,7 +1466,16 @@
     // F3-S: halaman lain yang butuh login mengarahkan ke sini dengan ?next=/alamat-halaman. Hanya alamat di website
     // ini sendiri yang diterima (diawali satu "/"), supaya tidak bisa dipakai untuk mengarahkan ke situs lain.
     const pageParams = new URLSearchParams(location.search);
-    const nextTarget = /^\/(?![\/\\])/.test(pageParams.get("next") || "") ? pageParams.get("next") : "";
+    function safeNext(value) {
+      if (!/^\/(?![\/\\])[^\u0000-\u001f\u007f\\]*$/.test(value)) return "";
+      try {
+        const url = new URL(value, location.origin);
+        return url.origin === location.origin ? url.pathname + url.search : "";
+      } catch (error) {
+        return "";
+      }
+    }
+    const nextTarget = safeNext(pageParams.get("next") || "");    
     const signedOut = pageParams.get("keluar") === "1";
 
     const translations = {
