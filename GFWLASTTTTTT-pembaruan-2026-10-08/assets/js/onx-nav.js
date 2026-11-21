@@ -26,7 +26,7 @@
     } catch (error) {
       // penyimpanan diblokir: abaikan
     }
-    location.replace("index.html?keluar=1");
+    location.replace("/index.html?keluar=1");    
   });
 
   document.addEventListener("DOMContentLoaded", () => {
