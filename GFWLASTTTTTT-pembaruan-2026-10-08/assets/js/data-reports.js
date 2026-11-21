@@ -391,7 +391,9 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
   function cleanPdfText(value) {
     return String(value ?? "")
       .replace(/\u00b0/g, " deg")
-      .replace(/[^\x20-\x7E]/g, "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\x20-\x7E]/g, "?")      
       .replace(/\\/g, "\\\\")
       .replace(/\(/g, "\\(")
       .replace(/\)/g, "\\)");
