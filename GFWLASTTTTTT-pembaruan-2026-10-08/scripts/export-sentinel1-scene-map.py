@@ -322,9 +322,11 @@ def add_trajectory_pixels(traj: pd.DataFrame, transformer: GCPTransformer) -> pd
     return out
 
 
-def pixel_to_lonlat(transformer: GCPTransformer, x: float, y: float) -> tuple[float, float] | None:
+def pixel_to_lonlat(transformer: GCPTransformer, col: float, row: float) -> tuple[float, float] | None:
+    # GCPTransformer.xy menerima (rows, cols), sedangkan pemanggil mengirim (col, row) = (x, y) piksel.
+    # Urutan [row], [col] di bawah memang disengaja; jangan ditukar.
     try:
-        xs, ys = transformer.xy([y], [x])
+        xs, ys = transformer.xy([row], [col])
     except Exception:
         return None
     return float(xs[0]), float(ys[0])
