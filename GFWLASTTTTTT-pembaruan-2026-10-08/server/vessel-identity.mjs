@@ -14,6 +14,9 @@ const BATCHES_PER_RUN = 5;
 const DAILY_REQUEST_LIMIT = 3000;
 const RECHECK_FOUND_S = 30 * 86400;
 const RECHECK_MISSING_S = 7 * 86400;
+// C-7: batas entri per permintaan pencarian. Bila jawaban GFW tepat sebanyak ini, mungkin masih ada entri yang
+// terpotong; hal itu dicatat sebagai peringatan, tidak lagi diam-diam.
+const SEARCH_LIMIT = 50;
 
 let db = null;
 let timer = null;
@@ -73,12 +76,16 @@ async function lookupBatch(mmsis, token) {
   const url = new URL(GFW_SEARCH_URL);
   url.searchParams.set("datasets[0]", GFW_IDENTITY_DATASET);
   url.searchParams.set("where", mmsis.map((m) => `ssvid="${m}"`).join(" OR "));
-  url.searchParams.set("limit", "50");
+  url.searchParams.set("limit", String(SEARCH_LIMIT));
   // M-129: kuota dihitung setelah GFW benar-benar menjawab. Timeout atau jaringan putus tidak menghabiskan kuota harian.
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30_000) });
   requestsToday++;
   if (!res.ok) throw new Error(`GFW vessels/search ${res.status}`);
   const json = await res.json();
+  const count = json?.entries?.length ?? 0;
+  if (count >= SEARCH_LIMIT) {
+    console.warn(`[vessel-identity] jawaban GFW penuh (${count} entri untuk ${mmsis.length} MMSI); sebagian identitas mungkin terpotong`);
+  }
 
   // Satu MMSI bisa punya beberapa entri; pakai entri pertama yang punya jenis kapal.
   const found = new Map();
