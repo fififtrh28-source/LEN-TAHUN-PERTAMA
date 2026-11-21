@@ -1,6 +1,9 @@
 // Penomoran halaman tabel, dipakai Anomaly Alert Center dan Data & Reports:
 // "Showing 1 to 10 of 365 entries" di kiri, tombol nomor halaman di kanan.
 export const PAGE_SIZE = 10;
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+}
 
 // Nomor yang ditampilkan: halaman pertama, terakhir, dan sekitar halaman yang dibuka; sisanya diringkas "…".
 function pageList(page, maxPage) {
@@ -28,15 +31,15 @@ export function renderPagination(container, { page, total, perPage = PAGE_SIZE, 
   const first = total ? (page - 1) * perPage + 1 : 0;
   const last = Math.min(total, page * perPage);
   const button = (label, target, { active = false, disabled = false, title = "" } = {}) =>
-    `<button type="button" class="onx-page-btn${active ? " is-active" : ""}" data-page="${target}"${active ? ' aria-current="page"' : ""}${disabled ? " disabled" : ""}${title ? ` aria-label="${title}" title="${title}"` : ""}>${label}</button>`;
+    `<button type="button" class="onx-page-btn${active ? " is-active" : ""}" data-page="${esc(target)}"${active ? ' aria-current="page"' : ""}${disabled ? " disabled" : ""}${title ? ` aria-label="${esc(title)}" title="${esc(title)}"` : ""}>${esc(label)}</button>`;
   const arrows = maxPage > 7;
 
   container.innerHTML = `
     <span class="onx-page-info">${total ? `Showing ${first} to ${last} of ${total} entries` : "Showing 0 entries"}</span>
     <div class="onx-page-buttons" role="navigation" aria-label="Table pages">
-      ${arrows ? button("&lsaquo;", page - 1, { disabled: page <= 1, title: "Previous page" }) : ""}
+      ${arrows ? button("‹", page - 1, { disabled: page <= 1, title: "Previous page" }) : ""}      
       ${(total ? pageList(page, maxPage) : []).map((value) => (value === null ? '<span class="onx-page-gap">&hellip;</span>' : button(value, value, { active: value === page }))).join("")}
-      ${arrows ? button("&rsaquo;", page + 1, { disabled: page >= maxPage, title: "Next page" }) : ""}
+      ${arrows ? button("›", page + 1, { disabled: page >= maxPage, title: "Next page" }) : ""}      
     </div>`;
 
   container.onclick = (event) => {
