@@ -139,13 +139,13 @@
         </div>
       </section>
 
-      <div class="onx-tabs" role="tablist" aria-label="Status tabs">
-        <button class="is-active" type="button" data-tab="All">All</button>
-        <button type="button" data-tab="New">New</button>
-        <button type="button" data-tab="Reviewed">Reviewed</button>
-        <button type="button" data-tab="Sent">Sent</button>
+      <div class="onx-tabs" role="group" aria-label="Filter by status">
+        <button class="is-active" type="button" data-tab="All" aria-pressed="true">All</button>
+        <button type="button" data-tab="New" aria-pressed="false">New</button>
+        <button type="button" data-tab="Reviewed" aria-pressed="false">Reviewed</button>
+        <button type="button" data-tab="Sent" aria-pressed="false">Sent</button>
       </div>
-
+      
       <div class="onx-workbench">
         <section class="onx-panel">
           <div class="onx-panel-head">

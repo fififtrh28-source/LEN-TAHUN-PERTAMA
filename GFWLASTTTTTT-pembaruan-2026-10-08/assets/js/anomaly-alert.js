@@ -178,10 +178,12 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
 
   function renderTabs() {
     document.querySelectorAll("[data-tab]").forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.tab === state.activeTab);
+      const active = button.dataset.tab === state.activeTab;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
     });
   }
-
+  
   function renderTable() {
     renderPagination(elements.pagination, {
       page: state.page,
