@@ -6,7 +6,9 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server/index.mjs"
+    "start": "node server/index.mjs",
+    "check:labels": "node scripts/check-map-labels-sync.mjs"
+    
   },
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.2.1",

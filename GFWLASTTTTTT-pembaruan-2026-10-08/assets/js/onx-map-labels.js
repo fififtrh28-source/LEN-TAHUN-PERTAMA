@@ -1,6 +1,6 @@
 // Nama laut dan kota Indonesia untuk peta kecil di Anomaly Alert Center.
 // SAMA dengan daftar di dashboard.html (bagian "LABEL PETA"): peta dasar Esri Ocean Base tidak punya nama tempat.
-// Kalau daftar di dashboard diubah, samakan di sini. Isi: [nama, lat, lon, zoom minimum].
+// Kalau daftar di dashboard diubah, samakan di sini lalu cek dengan "npm run check:labels". Isi: [nama, lat, lon, zoom minimum].
 export const SEA_LABELS = [
   ['Samudra Hindia', -9.6, 104.0, 4], ['Samudra Pasifik', 3.5, 134.5, 4],
   ['Laut Jawa', -5.2, 111.5, 4], ['Laut Banda', -6.0, 127.5, 4], ['Laut Sulawesi', 3.3, 122.0, 4],
