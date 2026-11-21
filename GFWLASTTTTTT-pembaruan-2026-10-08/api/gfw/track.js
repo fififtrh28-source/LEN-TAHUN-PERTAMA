@@ -19,6 +19,9 @@ const GFW_EVENT_DATASETS = [
 // fetchEventPages di src/lib/gfw.server.ts (T-63). Bila masih ada sisa, payload diberi truncated: true.
 const EVENTS_PAGE_SIZE = 200;
 const EVENTS_MAX_PAGES = 5;
+// C-2: bentuk ID kapal GFW (huruf heksadesimal dan tanda hubung), sama dengan api/gfw/gear.js. Nilai lain ditolak
+// 400 sebelum diteruskan ke GFW atau dipakai sebagai kunci cache.
+const VESSEL_ID_RE = /^[0-9a-f-]{20,64}$/i;
 
 function toIsoDate(date) {
   return date.includes("T") ? date : `${date}T00:00:00Z`;
@@ -105,6 +108,9 @@ export default async function handler(req, res) {
 
   if (!vesselId || !startDate || !endDate) {
     return sendProblem(res, 400, "vessel_id, start_date, end_date required");
+  }
+  if (!VESSEL_ID_RE.test(String(vesselId))) {
+    return sendProblem(res, 400, "vessel_id harus berupa ID kapal GFW (huruf 0-9, a-f, dan tanda hubung; 20-64 karakter).");
   }
   if (!isDay(startDate) || !isDay(endDate) || startDate > endDate) {
     return sendProblem(res, 400, "start_date dan end_date harus berformat YYYY-MM-DD, dan start_date tidak boleh setelah end_date.");
