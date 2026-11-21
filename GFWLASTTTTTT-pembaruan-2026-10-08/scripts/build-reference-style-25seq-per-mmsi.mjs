@@ -183,7 +183,11 @@ try {
     throw new Error(`Some rendered images do not contain exactly ${sequenceLength} points.`);
   }
 
-  writeFileSync(join(outputDir, "trajectory_gallery.html"), renderGallery(records), "utf8");
+  writeFileSync(
+    join(outputDir, "trajectory_gallery.html"),
+    renderGallery(records, { sequenceLength, source: relative(repoRoot, inputDir).replaceAll("\\", "/") }),
+    "utf8",
+  );  
   const report = [
     "REFERENCE-STYLE AIS VS KALMAN EXPORT",
     "",
@@ -232,31 +236,61 @@ function runNode(script, scriptArgs, extraEnv = {}) {
   }  
 }
 
-function renderGallery(records) {
-  const images = records
-    .toSorted(
-      (a, b) =>
-        String(a.gear).localeCompare(String(b.gear)) ||
-        String(a.mmsi).localeCompare(String(b.mmsi), undefined, { numeric: true }),
-    )
-    .map((record) => {
-      const src = `images/${basename(record.patch_image_file)}`;
-      return `  <img src="${escapeHtml(src)}" alt="MMSI ${escapeHtml(record.mmsi)}">`;
+function formatUtc(seconds) {
+  const date = new Date(Number(seconds) * 1000);
+  return Number.isNaN(date.getTime()) ? "?" : `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+function describeImage(record, sequenceLength) {
+  // R-047: alt deskriptif dari nama file (alat tangkap, MMSI, window waktu).
+  const match = /_start-(\d+)_end-(\d+)_/.exec(basename(String(record.patch_image_file ?? "")));
+  const gear = String(record.gear ?? "unknown gear").replaceAll("_", " ");
+  const window = match ? `, window ${formatUtc(match[1])} to ${formatUtc(match[2])}` : "";
+  return `AIS input vs Kalman residual plot, ${gear}, MMSI ${record.mmsi}${window}, ${sequenceLength} points`;
+}
+
+function renderGallery(records, { sequenceLength, source }) {
+  const sorted = records.toSorted(
+    (a, b) =>
+      String(a.gear).localeCompare(String(b.gear)) ||
+      String(a.mmsi).localeCompare(String(b.mmsi), undefined, { numeric: true }),
+  );
+  const groups = new Map();
+  for (const record of sorted) {
+    const key = String(record.mmsi);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(record);
+  }
+  // R-046: satu <section> per MMSI dengan content-visibility: auto, jadi grup di luar layar tidak dihitung tata letaknya.
+  const sections = [...groups]
+    .map(([mmsi, items]) => {
+      const images = items
+        .map((record) => {
+          const src = `images/${basename(record.patch_image_file)}`;
+          return `    <img loading="lazy" decoding="async" src="${escapeHtml(src)}" alt="${escapeHtml(describeImage(record, sequenceLength))}">`;
+        })
+        .join("\n");
+      return `  <section class="mmsi-group" aria-label="MMSI ${escapeHtml(mmsi)}, ${items.length} plot" style="contain-intrinsic-size: auto calc(${items.length} * 50vw)">\n${images}\n  </section>`;
     })
     .join("\n");
+  // M-068: judul memakai jumlah sebenarnya; 25 adalah titik per plot, bukan per MMSI.
+  const title = `AIS input vs Kalman - ${records.length} plot dari ${groups.size} MMSI (${sequenceLength} titik per plot)`;
+  // R-045: metadata pembuatan.
   return `<!doctype html>
+<!-- Generated: ${new Date().toISOString()} | Script: scripts/build-reference-style-25seq-per-mmsi.mjs | Source: ${source} | Images: ${records.length} | MMSI: ${groups.size} -->
 <html lang="id">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AIS input vs Kalman - 25 titik per MMSI</title>
+  <title>${escapeHtml(title)}</title>
   <style>
     html, body { margin: 0; background: #f8fbff; }
     img { display: block; width: 100%; height: auto; margin: 0; }
+    .mmsi-group { content-visibility: auto; }
   </style>
 </head>
 <body>
-${images}
+${sections}
 </body>
 </html>
 `;
