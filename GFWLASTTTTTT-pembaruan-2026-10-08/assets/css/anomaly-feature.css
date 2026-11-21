@@ -1406,3 +1406,7 @@ body.onx-light {
     border-bottom: 1px solid #d9e4ee;
   }
 }
+
+.onx-source-note {
+  font-size: 13px;
+}
