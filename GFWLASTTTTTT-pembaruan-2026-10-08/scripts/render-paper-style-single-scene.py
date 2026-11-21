@@ -299,7 +299,7 @@ def render(args: argparse.Namespace) -> Path:
     add_north_arrow(ax, xmax - 0.08 * (xmax - xmin), ymax - 0.13 * (ymax - ymin), 0.09 * (ymax - ymin))
 
     total_sar = len(rows)
-    total_ais = len(traj) if not traj.empty else int(rows["AIS_Latitude"].notna().sum())
+    total_ais = int(rows["AIS_Latitude"].notna().sum())    
     total_dark = int(rows["pred_label"].eq("go_dark").sum())
     total_kalman = int(rows.get("kalman_est_lat", pd.Series(dtype=float)).notna().sum())
     handles = [
