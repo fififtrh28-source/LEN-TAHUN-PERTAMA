@@ -328,6 +328,14 @@ def download_product(
         # Server ignored Range; restart cleanly instead of appending duplicate bytes.
         resume_from = 0
         mode = "wb"
+    if resume_from > 0 and response.status_code == 206:
+        content_range = response.headers.get("Content-Range", "")
+        if not content_range.startswith(f"bytes {resume_from}-"):
+            response.close()
+            raise ProductError(
+                f"Content-Range tidak cocok untuk {product.filename}: "
+                f"diharapkan mulai byte {resume_from}, server mengirim '{content_range}'"
+            )
 
     if response.status_code not in (200, 206):
         text = ""
