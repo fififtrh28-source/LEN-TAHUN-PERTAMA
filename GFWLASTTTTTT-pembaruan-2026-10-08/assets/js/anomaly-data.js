@@ -20,9 +20,12 @@
   let sourceNote = "";
   let loadError = "";
 
+  // Record dan riwayat berupa objek datar, jadi salinan dangkal sudah cukup (tidak membuang undefined/Date seperti JSON).
   function clone(value) {
-    return JSON.parse(JSON.stringify(value));
-  }
+    if (Array.isArray(value)) return value.map((item) => (item && typeof item === "object" ? { ...item } : item));
+    if (value && typeof value === "object") return { ...value };
+    return value;
+  }  
 
   function read(key, fallback) {
     try {
