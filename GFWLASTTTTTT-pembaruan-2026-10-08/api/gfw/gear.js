@@ -17,7 +17,8 @@ const EMPTY_TTL_SECONDS = 15 * 60;        // T-11: hasil kosong (null) hanya dis
 const VESSEL_ID_RE = /^[0-9a-f-]{20,64}$/i;
 
 function cacheKey(id) {
-  return `gfw:gear:v2:${id}`; // v2: aturan pencocokan K-10/T-10 berubah, cache v1 tidak dipakai lagi
+  // v3: pemilihan alat tangkap saat yearTo kosong diperbaiki (X-6), cache v2 tidak dipakai lagi
+  return `gfw:gear:v3:${id}`;
 }
 
 function readIds(req) {
@@ -25,6 +26,15 @@ function readIds(req) {
   if (typeof raw === "string") raw = raw.split(",");
   if (!Array.isArray(raw)) return [];
   return [...new Set(raw.map((id) => String(id).trim()).filter((id) => VESSEL_ID_RE.test(id)))].slice(0, MAX_IDS);
+}
+
+// X-6: yearTo kosong/hilang/bukan angka dianggap paling lama (sama dengan M-128 di server/vessel-identity.mjs).
+// Dulu Number(undefined) = NaN dan NaN > x selalu false, sehingga entri pertama tanpa yearTo tidak pernah tergantikan.
+function yearToOf(item) {
+  const v = item?.yearTo;
+  if (v === null || v === undefined || v === "") return -Infinity;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : -Infinity;
 }
 
 // Pilih info sumber yang memuat vesselId ini, lalu alat tangkap dengan tahun berlaku paling akhir.
@@ -35,7 +45,7 @@ function pickGear(entry, id) {
   if (!info) return null;
   const gears = info?.geartypes || [];
   if (!gears.length) return null;
-  const latest = gears.reduce((a, b) => (Number(b.yearTo) > Number(a.yearTo) ? b : a));
+  const latest = gears.reduce((a, b) => (yearToOf(b) > yearToOf(a) ? b : a));
   return { name: latest.name, source: latest.source, yearFrom: latest.yearFrom, yearTo: latest.yearTo };
 }
 
