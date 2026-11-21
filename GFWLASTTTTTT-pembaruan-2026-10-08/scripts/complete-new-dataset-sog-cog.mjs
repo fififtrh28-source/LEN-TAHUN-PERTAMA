@@ -83,7 +83,7 @@ async function processRow(row) {
       row.sog_cog_completion_note = gfw.fill.note;
       row.sog_cog_completion_track_window_days = String(gfw.fill.windowDays);
       row.sog_cog_completion_nearest_track_time = gfw.fill.nearestTime ?? "";
-      row.sog_cog_completion_nearest_track_minutes = gfw.fill.nearestMinutes != null ? formatNumber(gfw.fill.nearestMinutes, 3) : "";
+      row.sog_cog_completion_nearest_track_minutes = gfw.fill.nearestMinutes !== null && gfw.fill.nearestMinutes !== undefined ? formatNumber(gfw.fill.nearestMinutes, 3) : "";
 
       if (gfw.fill.kind === "filled_from_gfw_track_observed_speed_course") filledFromGfwObserved += 1;
       if (gfw.fill.kind === "filled_from_gfw_track_computed_neighbor_pair") filledFromGfwComputedPair += 1;
