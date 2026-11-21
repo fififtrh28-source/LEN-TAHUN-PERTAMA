@@ -137,7 +137,7 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
     const filters = getFilters();
 
     state.filtered = state.records.filter((record) => {
-      const day = record.dateISO.slice(0, 10);
+      const day = String(record.dateISO ?? "").slice(0, 10);      
       const matchesTab = state.activeTab === "All" || record.status === state.activeTab;
       const matchesStart = !filters.start || day >= filters.start;
       const matchesEnd = !filters.end || day <= filters.end;
