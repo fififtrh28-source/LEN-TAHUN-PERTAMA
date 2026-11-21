@@ -351,7 +351,12 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
     if (!record) return null;
     const updated = dataStore.updateAnomaly(record.id, { status });
     syncRecords();
-    state.selectedId = updated.id;
+    if (!updated) {
+      renderAll();
+      showToast("Record not found; the data may have been reloaded.");
+      return null;
+    }
+    state.selectedId = updated.id;    
     renderAll();
     return updated;
   }
@@ -407,6 +412,13 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
 
     // Telegram belum disambungkan: yang terjadi hanya perubahan status di browser ini, tidak ada pesan yang terkirim.
     const updated = dataStore.updateAnomaly(record.id, { status: "Sent", remarks: "Marked as sent (simulation; Telegram is not connected yet)" });
+    if (!updated) {
+      closeAlertPreview();
+      syncRecords();
+      renderAll();
+      showToast("Record not found; the alert was not sent.");
+      return;
+    }
     dataStore.addAlertHistory({
       id: `hist-${Date.now()}`,
       sentAt: dataStore.formatNowWib(),
