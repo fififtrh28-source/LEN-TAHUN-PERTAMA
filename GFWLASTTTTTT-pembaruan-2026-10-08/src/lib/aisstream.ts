@@ -225,7 +225,8 @@ export class AisStreamClient {
 }
 
 function navStatusLabel(code?: number): string | undefined {
-  if (code == null) return undefined;
+  // C-6: pemeriksaan kosong ditulis eksplisit (=== null / === undefined), bukan perbandingan longgar.
+  if (code === null || code === undefined) return undefined;
   const map: Record<number, string> = {
     0: "Under way using engine",
     1: "At anchor",
@@ -242,7 +243,7 @@ function navStatusLabel(code?: number): string | undefined {
 }
 
 export function speedColor(speed?: number): string {
-  if (speed == null || !Number.isFinite(speed)) return "var(--ais-unknown)";
+  if (speed === null || speed === undefined || !Number.isFinite(speed)) return "var(--ais-unknown)";
   if (speed < 1) return "var(--ais-stop)";
   if (speed < 5) return "var(--ais-slow)";
   if (speed < 12) return "var(--ais-normal)";
@@ -250,7 +251,7 @@ export function speedColor(speed?: number): string {
 }
 
 export function speedLabel(speed?: number): string {
-  if (speed == null || !Number.isFinite(speed)) return "Tidak diketahui";
+  if (speed === null || speed === undefined || !Number.isFinite(speed)) return "Tidak diketahui";
   if (speed < 1) return "Berhenti";
   if (speed < 5) return "Lambat";
   if (speed < 12) return "Normal";
