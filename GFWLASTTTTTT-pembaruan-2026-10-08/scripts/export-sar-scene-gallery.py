@@ -272,7 +272,7 @@ def main() -> None:
         subset=["candidate_type", "scene", "MMSI", "neighbor_mmsi", "patch_rgb_vv_actual_file", "patch_rgb_vh_actual_file"],
         keep="first",
     )
-    data["score_num"] = pd.to_numeric(data.get("score"), errors="coerce").fillna(0)
+    data["score_num"] = pd.to_numeric(data["score"], errors="coerce").fillna(0) if "score" in data.columns else 0    
     data = data.sort_values(["candidate_type", "score_num"], ascending=[True, False])
     data = data.groupby("candidate_type", group_keys=False).head(args.max_per_type).copy()
 
