@@ -192,8 +192,8 @@ def make_figure(row: pd.Series, output_path: Path) -> tuple[Path | None, Path | 
     candidate_type = clean_text(row.get("candidate_type"))
     color = TYPE_COLORS.get(candidate_type, (255, 80, 80))
 
-    vv = normalize_patch(Image.open(vv_path)) if vv_path else Image.new("RGB", (256, 256), (0, 0, 0))
-    vh = normalize_patch(Image.open(vh_path)) if vh_path else Image.new("RGB", (256, 256), (0, 0, 0))
+    vv = load_patch(vv_path)
+    vh = load_patch(vh_path)   
     vv = annotate_patch(vv, row, color)
     vh = annotate_patch(vh, row, color)
     panel = text_panel(row, candidate_type, clean_text(row.get("evidence")), 520, 256)
@@ -214,11 +214,12 @@ def make_figure(row: pd.Series, output_path: Path) -> tuple[Path | None, Path | 
     return vv_path, vh_path
 
 
-def safe_name(row: pd.Series, index: int) -> str:
-    scene = clean_text(row.get("scene"))[-20:]
-    mmsi = clean_text(row.get("MMSI")) or "unknown"
-    ctype = clean_text(row.get("candidate_type")) or "scene"
-    return f"{index:03d}_{ctype}_{mmsi}_{scene}.png".replace(":", "-").replace("/", "_").replace("\\", "_")
+def load_patch(path: Path | None) -> Image.Image:
+    if not path:
+        return Image.new("RGB", (256, 256), (0, 0, 0))
+    with Image.open(path) as im:
+        im.load()
+        return normalize_patch(im.copy())
 
 
 def create_html(manifest: pd.DataFrame, output_dir: Path) -> Path:
