@@ -61,15 +61,22 @@
   <header>
     <h1>Scene Kapal Sentinel-1 - titik kapal aktif</h1>
     <nav>
-      <a class="primary" href="KAPAL%20YG%20TERDETEKSI/SENTINEL1_SCENE_MAPS/S1A_IW_GRDH_1SDV_20260215T104128_20260215T104157_063228_07F03A_350C_vv_interactive.html" target="scene">Interactive + titik</a>
-      <a href="KAPAL%20YG%20TERDETEKSI/HASIL_TRAJECTORY_AIS_KALMAN_SIMPLE/S1A_IW_GRDH_1SDV_20260215T104128_20260215T104157_063228_07F03A_350C_vv_ais_kalman_simple.png" target="scene">AIS/Kalman simple</a>
-      <a href="KAPAL%20YG%20TERDETEKSI/HASIL_SCENE_KAPAL_TANPA_KETERANGAN/S1A_IW_GRDH_1SDV_20260215T104128_20260215T104157_063228_07F03A_350C_vv_ships_only_no_text.png" target="scene">Kapal tanpa tulisan</a>
-      <a href="KAPAL%20YG%20TERDETEKSI/HASIL_SCENE_KAPAL_TANPA_KETERANGAN/S1A_IW_GRDH_1SDV_20260215T104128_20260215T104157_063228_07F03A_350C_vv_sar_clean_no_annotation.png" target="scene">SAR polos</a>
+      <a class="primary" data-scene-file="SENTINEL1_SCENE_MAPS/{scene}_interactive.html" target="scene">Interactive + titik</a>
+      <a data-scene-file="HASIL_TRAJECTORY_AIS_KALMAN_SIMPLE/{scene}_ais_kalman_simple.png" target="scene">AIS/Kalman simple</a>
+      <a data-scene-file="HASIL_SCENE_KAPAL_TANPA_KETERANGAN/{scene}_ships_only_no_text.png" target="scene">Kapal tanpa tulisan</a>
+      <a data-scene-file="HASIL_SCENE_KAPAL_TANPA_KETERANGAN/{scene}_sar_clean_no_annotation.png" target="scene">SAR polos</a>
     </nav>
   </header>
-  <iframe
-    name="scene"
-    src="KAPAL%20YG%20TERDETEKSI/SENTINEL1_SCENE_MAPS/S1A_IW_GRDH_1SDV_20260215T104128_20260215T104157_063228_07F03A_350C_vv_interactive.html">
-  </iframe>
+  <iframe name="scene" title="Scene Sentinel-1"></iframe>
+  <script>
+    // R-042: untuk ganti scene, cukup ubah SCENE di bawah ini.
+    const SCENE = "S1A_IW_GRDH_1SDV_20260215T104128_20260215T104157_063228_07F03A_350C_vv";
+    const BASE = "KAPAL%20YG%20TERDETEKSI/";
+    const sceneUrl = (pattern) => BASE + pattern.replace("{scene}", SCENE);
+    document.querySelectorAll("a[data-scene-file]").forEach((link) => {
+      link.href = sceneUrl(link.dataset.sceneFile);
+    });
+    document.querySelector("iframe[name='scene']").src = sceneUrl("SENTINEL1_SCENE_MAPS/{scene}_interactive.html");
+  </script>  
 </body>
 </html>
