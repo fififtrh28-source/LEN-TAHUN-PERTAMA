@@ -24,6 +24,7 @@ function pageList(page, maxPage) {
 
 export function renderPagination(container, { page, total, perPage = PAGE_SIZE, onPage }) {
   const maxPage = Math.max(1, Math.ceil(total / perPage));
+  page = Math.min(Math.max(1, Math.trunc(Number(page)) || 1), maxPage);
   const first = total ? (page - 1) * perPage + 1 : 0;
   const last = Math.min(total, page * perPage);
   const button = (label, target, { active = false, disabled = false, title = "" } = {}) =>
