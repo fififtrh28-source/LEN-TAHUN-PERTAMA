@@ -157,13 +157,15 @@ def render_one(zip_path: Path, args: argparse.Namespace, output_dir: Path) -> su
             stdout=partial,
             stderr=f"timeout: render melebihi {RENDER_TIMEOUT_S} detik, scene dilewati",
         )
-    
+        
 
 def main() -> int:
     args = parse_args()
     output_dir = args.output_dir or (DEFAULT_SIMPLE_OUT if args.mode == "simple" else DEFAULT_MAPS_OUT)
     output_dir.mkdir(parents=True, exist_ok=True)
-
+    if not args.scenes_dir.is_dir():
+        print(f"Folder scene tidak ditemukan: {args.scenes_dir}", file=sys.stderr)
+        return 1
     zips = ordered_zips(args.scenes_dir, args.priority_csv)
     if args.start:
         zips = zips[args.start :]
