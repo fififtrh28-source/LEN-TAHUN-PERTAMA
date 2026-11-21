@@ -589,7 +589,7 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
     const lines = [];
     let current = "";
     words.forEach((word) => {
-      if (`${current} ${word}`.trim().length > maxLength) {
+      if (current && `${current} ${word}`.length > maxLength) {        
         lines.push(current);
         current = word;
       } else {
