@@ -1659,6 +1659,27 @@
       });
     }
 
+    // M-064: HTML dari terjemahan dan modal hanya boleh berisi tag dan atribut di daftar ini.
+    const ALLOWED_HTML = {
+      P: [], SPAN: [], FORM: ["class"], LABEL: [], INPUT: ["value", "aria-label"],
+      SELECT: ["aria-label"], OPTION: [], TEXTAREA: ["aria-label"], BUTTON: ["type", "data-close-modal"],
+    };
+    function setSafeHtml(node, html) {
+      const template = document.createElement("template");
+      template.innerHTML = html;
+      template.content.querySelectorAll("*").forEach((el) => {
+        const allowed = ALLOWED_HTML[el.tagName];
+        if (!allowed) {
+          el.replaceWith(document.createTextNode(el.textContent));
+          return;
+        }
+        Array.from(el.attributes).forEach((attr) => {
+          if (!allowed.includes(attr.name)) el.removeAttribute(attr.name);
+        });
+      });
+      node.replaceChildren(template.content);
+    }
+
     function setLanguage(nextLanguage) {
       language = nextLanguage === "id" ? "id" : "en";
       document.documentElement.lang = language === "id" ? "id" : "en";
@@ -1673,7 +1694,7 @@
         node.textContent = translations[language][node.dataset.i18n] || "";
       });
       document.querySelectorAll("[data-i18n-html]").forEach((node) => {
-        node.innerHTML = translations[language][node.dataset.i18nHtml] || "";
+        setSafeHtml(node, translations[language][node.dataset.i18nHtml] || "");        
       });
       document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
         node.placeholder = translations[language][node.dataset.i18nPlaceholder] || "";
@@ -1697,7 +1718,7 @@
       activeModalType = type;
       modalLabel.textContent = content.label;
       modalTitle.textContent = content.title;
-      modalBody.innerHTML = content.body;
+      setSafeHtml(modalBody, content.body);      
       modal.classList.add("open");
       modal.setAttribute("aria-hidden", "false");
       closeLanguageMenus();
@@ -1768,7 +1789,7 @@
       password.type = showing ? "text" : "password";
       event.currentTarget.setAttribute("aria-label", showing ? "Hide password" : "Show password");
     });
-    
+
     // Nama pengguna dan kata sandi diperiksa di server (api/auth/login.js); kode halaman ini tidak menyimpannya.
     document.getElementById("login-form").addEventListener("submit", async (event) => {
       event.preventDefault();
