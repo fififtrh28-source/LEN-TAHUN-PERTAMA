@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import html
 import math
+import re
 import shutil
 import textwrap
 from pathlib import Path
@@ -220,6 +221,14 @@ def load_patch(path: Path | None) -> Image.Image:
     with Image.open(path) as im:
         im.load()
         return normalize_patch(im.copy())
+
+
+def safe_name(row: pd.Series, index: int) -> str:
+    scene = clean_text(row.get("scene"))[-20:]
+    mmsi = clean_text(row.get("MMSI")) or "unknown"
+    ctype = clean_text(row.get("candidate_type")) or "scene"
+    name = f"{index:03d}_{ctype}_{mmsi}_{scene}.png".replace(":", "-")
+    return re.sub(r'[<>"/\\|?*\x00-\x1f]', "_", name)
 
 
 def create_html(manifest: pd.DataFrame, output_dir: Path) -> Path:
