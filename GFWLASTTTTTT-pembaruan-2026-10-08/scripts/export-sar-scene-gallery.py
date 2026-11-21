@@ -268,14 +268,11 @@ def main() -> None:
     join_cols = ["scene", "MMSI"]
     data = candidates.merge(metadata, on=join_cols, how="left", suffixes=("", "_meta"))
     data = data[data["candidate_type"].isin(selected_types)].copy()
-    data = data.drop_duplicates(
-        subset=["candidate_type", "scene", "MMSI", "neighbor_mmsi", "patch_rgb_vv_actual_file", "patch_rgb_vh_actual_file"],
-        keep="first",
-    )
+    dedup_cols = ["candidate_type", "scene", "MMSI", "neighbor_mmsi", "patch_rgb_vv_actual_file", "patch_rgb_vh_actual_file"]
+    data = data.drop_duplicates(subset=[col for col in dedup_cols if col in data.columns], keep="first")    
     data["score_num"] = pd.to_numeric(data["score"], errors="coerce").fillna(0) if "score" in data.columns else 0    
     data = data.sort_values(["candidate_type", "score_num"], ascending=[True, False])
     data = data.groupby("candidate_type", group_keys=False).head(args.max_per_type).copy()
-
     args.output_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     for index, (_, row) in enumerate(data.iterrows(), start=1):
