@@ -309,7 +309,6 @@ a {
   border-radius: 8px;
   background: rgba(3, 31, 50, 0.72);
   box-shadow: 0 18px 52px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px);
 }
 
 .onx-stat {
@@ -730,7 +729,6 @@ a {
   border-radius: 8px;
   padding: 8px 10px;
   background: rgba(1, 18, 30, 0.82);
-  backdrop-filter: blur(10px);
 }
 
 .onx-map-toolbar span,
