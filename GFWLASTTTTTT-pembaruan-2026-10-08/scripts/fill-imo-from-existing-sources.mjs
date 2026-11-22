@@ -219,8 +219,9 @@ function normalizeImo(input) {
   return "";
 }
 
+// R-067: normalizeImo sudah menjamin hasilnya 7 angka yang lolos angka pemeriksa, atau "" bila tidak sah.
 function validImo(input) {
-  return /^\d{7}$/.test(normalizeImo(input));
+  return normalizeImo(input) !== "";
 }
 
 function writeOutput(path, content) {
