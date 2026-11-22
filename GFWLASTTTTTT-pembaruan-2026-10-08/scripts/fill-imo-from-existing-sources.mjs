@@ -210,8 +210,13 @@ function imoCheckDigitOk(digits) {
 
 // Mengambil nomor IMO yang sah: 7 angka yang tidak menempel pada angka lain (bukan potongan MMSI atau nomor
 // panjang lain) dan lolos angka pemeriksa. Nilai yang tidak memenuhi menjadi kosong.
-function validImo(input) {
-  return normalizeImo(input) !== "";
+function normalizeImo(input) {
+  const raw = value(input);
+  if (!raw) return "";
+  for (const match of raw.matchAll(/(?<!\d)\d{7}(?!\d)/g)) {
+    if (imoCheckDigitOk(match[0])) return match[0];
+  }
+  return "";
 }
 
 function validImo(input) {
