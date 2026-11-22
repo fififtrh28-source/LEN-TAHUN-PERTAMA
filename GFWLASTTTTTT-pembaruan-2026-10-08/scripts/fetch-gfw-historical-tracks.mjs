@@ -72,7 +72,7 @@ function parseArgs(argv) {
       continue;
     }
     if (!key.startsWith("--")) throw new Error(`Unknown positional argument: ${key}`);
-    if (next == null || next.startsWith("--")) throw new Error(`Missing value for ${key}`);
+    if (next === undefined || next === null || next.startsWith("--")) throw new Error(`Missing value for ${key}`);    
     i += 1;
     if (key === "--candidates") args.candidates = resolvePath(next);
     else if (key === "--out-dir") args.outDir = resolvePath(next);
@@ -184,7 +184,7 @@ function parseCsv(input) {
 }
 
 function csvEscape(value) {
-  const text = value == null ? "" : String(value);
+  const text = value === null || value === undefined ? "" : String(value); 
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
@@ -479,7 +479,7 @@ function parseTrackPoints(json) {
 }
 
 function normalizeTimestamp(value) {
-  if (value == null || value === "") return "";
+  if (value === null || value === undefined || value === "") return "";
   // Angka > 1e12 dianggap milidetik (setelah Sep 2001), selain itu detik; sama dengan parseDateish di skrip lain.
   if (typeof value === "number") return new Date(value * (value > 1e12 ? 1 : 1000)).toISOString();
   const parsed = new Date(value);

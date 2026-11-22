@@ -114,7 +114,8 @@ for (const [mmsi, group] of groups) {
   for (const p of group) {
     const lon = validCoord(p.ais_lon);
     const lat = validCoord(p.ais_lat);
-    if (lon === null || lat === null) continue; // Jangan masukkan koordinat kosong ke GeoJSON    
+    if (lon === null || lat === null) continue; // Jangan masukkan koordinat kosong ke GeoJSON
+    if (isNullIsland(lat, lon)) continue;     
     if (finiteLatLon(lat, lon)) rawCoordinates.push([lon, lat]);
   }
   if (rawCoordinates.length >= 2) {
@@ -240,8 +241,8 @@ function renderTrajectoryComparisonSvg(mmsi, group) {
       kalmanLat: Number(point.kalman_lat),
       kalmanLon: Number(point.kalman_lon),
     }))
-    .filter((point) => finiteLatLon(point.rawLat, point.rawLon) && finiteLatLon(point.kalmanLat, point.kalmanLon));
-
+    .filter((point) => finiteLatLon(point.rawLat, point.rawLon) && !isNullIsland(point.rawLat, point.rawLon) && finiteLatLon(point.kalmanLat, point.kalmanLon));
+    
   if (valid.length < 2) return null;
 
   // K-3 (laporan audit, B.3): bujur dibuat bersambung relatif terhadap titik pertama, supaya gambar lintasan yang
@@ -418,10 +419,21 @@ function lineGeometry(coordinates) {
 // Validasi ketat string kosong sebelum konversi numerik. Angka 0 juga ditolak, karena posisi AIS yang
 // kosong sering tercatat sebagai 0. Catatan: posisi yang tepat 0,00000000° (khatulistiwa atau bujur 0°)
 // ikut terbuang; pada data saat ini tidak ada satu pun titik AIS yang tepat 0.
+// M-078: 0 adalah lintang/bujur yang sah (khatulistiwa melintasi Indonesia). Sel kosong sudah ditolak di atas.
 function validCoord(val) {
   if (val === null || val === undefined || val === "" || typeof val === "boolean") return null;
   const num = Number(val);
-  return Number.isFinite(num) && num !== 0 ? num : null;
+  return Number.isFinite(num) ? num : null;
+}
+
+// Hanya pasangan (0, 0) yang dibuang: titik palsu "Null Island" dari data rusak, bukan posisi kapal.
+function isNullIsland(lat, lon) {
+  if (lat !== 0 || lon !== 0) return false;
+  isNullIsland.count = (isNullIsland.count || 0) + 1;
+  if (isNullIsland.count === 1) {
+    console.warn("[create-ais-trajectories] Koordinat AIS (0, 0) dibuang sebagai titik palsu. Peringatan ini hanya ditampilkan sekali.");
+  }
+  return true;
 }
 
 function parseDateish(input) {

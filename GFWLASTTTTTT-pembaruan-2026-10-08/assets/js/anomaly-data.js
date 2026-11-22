@@ -4,8 +4,10 @@
   // (INTEGRATION_DATA_FILES.candidates), ditambah bendera dan IMO kapal dari file metadata penelitian.
   // Tidak ada data contoh di sini. Yang disimpan di browser hanya status tiap temuan (New / Reviewed / Sent)
   // dan riwayat alert; data kapalnya selalu dibaca ulang dari file.
-  const CANDIDATES_URL = "KAPAL YG TERDETEKSI/scene_candidates_godark_spoofing_transshipment.csv";
-  const METADATA_URL = "new/metadata/metadata_with_vh_gfw_ais_identity_sog_cog_enriched_FINAL_kalman_estimated.csv";
+  // Path data bisa ditimpa tanpa mengubah file ini: <script>window.ONX_DATA_CONFIG = { candidatesUrl: "...", metadataUrl: "..." }</script>
+  const DATA_CONFIG = window.ONX_DATA_CONFIG || {};
+  const CANDIDATES_URL = DATA_CONFIG.candidatesUrl || "KAPAL YG TERDETEKSI/scene_candidates_godark_spoofing_transshipment.csv";
+  const METADATA_URL = DATA_CONFIG.metadataUrl || "new/metadata/metadata_with_vh_gfw_ais_identity_sog_cog_enriched_FINAL_kalman_estimated.csv";
   const STATUS_KEY = "ocean-nexus-anomaly-status-v2";
   const HISTORY_KEY = "ocean-nexus-alert-history-v2";
   // Kunci lama berisi data contoh; dibuang supaya tidak pernah tampil lagi.
@@ -18,9 +20,12 @@
   let sourceNote = "";
   let loadError = "";
 
+  // Record dan riwayat berupa objek datar, jadi salinan dangkal sudah cukup (tidak membuang undefined/Date seperti JSON).
   function clone(value) {
-    return JSON.parse(JSON.stringify(value));
-  }
+    if (Array.isArray(value)) return value.map((item) => (item && typeof item === "object" ? { ...item } : item));
+    if (value && typeof value === "object") return { ...value };
+    return value;
+  }  
 
   function read(key, fallback) {
     try {
@@ -106,13 +111,22 @@
     return dist ? `SAR-AIS ${dist} km` : "Position mismatch";
   }
 
-  async function fetchText(url) {
-    const response = await fetch(encodeURI(url));
-    if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-    const text = await response.text();
-    // Situs yang tayang mengembalikan halaman depan untuk alamat yang tidak ada; itu bukan CSV.
-    if (/^\s*<!doctype html|^\s*<html/i.test(text)) throw new Error(`${url}: file not found`);
-    return text;
+  async function fetchText(url, timeoutMs = 30000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(encodeURI(url), { signal: controller.signal });
+      if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+      const text = await response.text();
+      // Situs yang tayang mengembalikan halaman depan untuk alamat yang tidak ada; itu bukan CSV.
+      if (/^\s*<!doctype html|^\s*<html/i.test(text)) throw new Error(`${url}: file not found`);
+      return text;
+    } catch (error) {
+      if (error?.name === "AbortError") throw new Error(`${url}: timeout after ${timeoutMs / 1000} s`);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async function load() {

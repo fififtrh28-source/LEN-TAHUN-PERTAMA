@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import html
 import math
-import shutil
+import re
 import textwrap
 from pathlib import Path
 
@@ -192,8 +192,8 @@ def make_figure(row: pd.Series, output_path: Path) -> tuple[Path | None, Path | 
     candidate_type = clean_text(row.get("candidate_type"))
     color = TYPE_COLORS.get(candidate_type, (255, 80, 80))
 
-    vv = normalize_patch(Image.open(vv_path)) if vv_path else Image.new("RGB", (256, 256), (0, 0, 0))
-    vh = normalize_patch(Image.open(vh_path)) if vh_path else Image.new("RGB", (256, 256), (0, 0, 0))
+    vv = load_patch(vv_path)
+    vh = load_patch(vh_path)   
     vv = annotate_patch(vv, row, color)
     vh = annotate_patch(vh, row, color)
     panel = text_panel(row, candidate_type, clean_text(row.get("evidence")), 520, 256)
@@ -214,11 +214,20 @@ def make_figure(row: pd.Series, output_path: Path) -> tuple[Path | None, Path | 
     return vv_path, vh_path
 
 
+def load_patch(path: Path | None) -> Image.Image:
+    if not path:
+        return Image.new("RGB", (256, 256), (0, 0, 0))
+    with Image.open(path) as im:
+        im.load()
+        return normalize_patch(im.copy())
+
+
 def safe_name(row: pd.Series, index: int) -> str:
     scene = clean_text(row.get("scene"))[-20:]
     mmsi = clean_text(row.get("MMSI")) or "unknown"
     ctype = clean_text(row.get("candidate_type")) or "scene"
-    return f"{index:03d}_{ctype}_{mmsi}_{scene}.png".replace(":", "-").replace("/", "_").replace("\\", "_")
+    name = f"{index:03d}_{ctype}_{mmsi}_{scene}.png".replace(":", "-")
+    return re.sub(r'[<>"/\\|?*\x00-\x1f]', "_", name)
 
 
 def create_html(manifest: pd.DataFrame, output_dir: Path) -> Path:
@@ -268,14 +277,11 @@ def main() -> None:
     join_cols = ["scene", "MMSI"]
     data = candidates.merge(metadata, on=join_cols, how="left", suffixes=("", "_meta"))
     data = data[data["candidate_type"].isin(selected_types)].copy()
-    data = data.drop_duplicates(
-        subset=["candidate_type", "scene", "MMSI", "neighbor_mmsi", "patch_rgb_vv_actual_file", "patch_rgb_vh_actual_file"],
-        keep="first",
-    )
-    data["score_num"] = pd.to_numeric(data.get("score"), errors="coerce").fillna(0)
+    dedup_cols = ["candidate_type", "scene", "MMSI", "neighbor_mmsi", "patch_rgb_vv_actual_file", "patch_rgb_vh_actual_file"]
+    data = data.drop_duplicates(subset=[col for col in dedup_cols if col in data.columns], keep="first")    
+    data["score_num"] = pd.to_numeric(data["score"], errors="coerce").fillna(0) if "score" in data.columns else 0    
     data = data.sort_values(["candidate_type", "score_num"], ascending=[True, False])
     data = data.groupby("candidate_type", group_keys=False).head(args.max_per_type).copy()
-
     args.output_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     for index, (_, row) in enumerate(data.iterrows(), start=1):

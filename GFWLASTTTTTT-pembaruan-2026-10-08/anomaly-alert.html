@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' https://unpkg.com 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <title>Anomaly Alert Center | Ocean Nexus 2026</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>  
@@ -86,7 +87,7 @@
           <p class="onx-kicker">Operations Console</p>
           <h1>Anomaly Alert Center</h1>
           <p>Review detected vessel anomalies, verify supporting data, and send validated alerts.</p>
-          <p class="onx-muted" id="data-source-note" style="font-size:13px"></p>
+          <p class="onx-muted onx-source-note" id="data-source-note"></p>        
         </div>
       </div>
 
@@ -111,8 +112,8 @@
 
       <section class="onx-panel onx-filter-panel" aria-label="Anomaly filters">
         <div class="onx-field">
-          <label>Date Range</label>
-          <div class="onx-range">
+          <label for="filter-start" id="filter-date-label">Date Range</label>
+          <div class="onx-range" role="group" aria-labelledby="filter-date-label">            
             <input id="filter-start" type="date" aria-label="Start date">
             <input id="filter-end" type="date" aria-label="End date">
           </div>
@@ -138,13 +139,12 @@
         </div>
       </section>
 
-      <div class="onx-tabs" role="tablist" aria-label="Status tabs">
-        <button class="is-active" type="button" data-tab="All">All</button>
-        <button type="button" data-tab="New">New</button>
-        <button type="button" data-tab="Reviewed">Reviewed</button>
-        <button type="button" data-tab="Sent">Sent</button>
+      <div class="onx-tabs" role="group" aria-label="Filter by status">
+        <button class="is-active" type="button" data-tab="All" aria-pressed="true">All</button>
+        <button type="button" data-tab="New" aria-pressed="false">New</button>
+        <button type="button" data-tab="Reviewed" aria-pressed="false">Reviewed</button>
+        <button type="button" data-tab="Sent" aria-pressed="false">Sent</button>
       </div>
-
       <div class="onx-workbench">
         <section class="onx-panel">
           <div class="onx-panel-head">
@@ -212,8 +212,8 @@
       <pre class="onx-alert-preview" id="telegram-preview"></pre>
       <div class="onx-modal-body">
         <div class="onx-field">
-          <label>Send To</label>
-          <input value="Ocean Nexus Alert Group" readonly>
+          <label for="telegram-send-to">Send To</label>
+          <input id="telegram-send-to" value="Ocean Nexus Alert Group" readonly aria-readonly="true">          
         </div>
         <div class="onx-checkbox">
           <span>Options</span>
@@ -221,7 +221,7 @@
           <label><input type="checkbox" checked> Include key details</label>
         </div>
         <div class="onx-modal-actions">
-          <a class="onx-button" href="https://web.telegram.org/a/" target="_blank" rel="noopener">Open Telegram Group</a>
+          <a class="onx-button" href="https://web.telegram.org/a/" target="_blank" rel="noopener noreferrer" title="Simulation: opens Telegram Web, not a specific group">Open Telegram Web</a>         
           <button class="onx-button" id="cancel-telegram-alert" type="button">Cancel</button>
           <button class="onx-button is-primary" id="send-telegram-alert" type="button">Send Alert</button>
         </div>

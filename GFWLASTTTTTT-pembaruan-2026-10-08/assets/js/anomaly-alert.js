@@ -137,7 +137,7 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
     const filters = getFilters();
 
     state.filtered = state.records.filter((record) => {
-      const day = record.dateISO.slice(0, 10);
+      const day = String(record.dateISO ?? "").slice(0, 10);      
       const matchesTab = state.activeTab === "All" || record.status === state.activeTab;
       const matchesStart = !filters.start || day >= filters.start;
       const matchesEnd = !filters.end || day <= filters.end;
@@ -178,10 +178,12 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
 
   function renderTabs() {
     document.querySelectorAll("[data-tab]").forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.tab === state.activeTab);
+      const active = button.dataset.tab === state.activeTab;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
     });
   }
-
+  
   function renderTable() {
     renderPagination(elements.pagination, {
       page: state.page,
@@ -351,7 +353,12 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
     if (!record) return null;
     const updated = dataStore.updateAnomaly(record.id, { status });
     syncRecords();
-    state.selectedId = updated.id;
+    if (!updated) {
+      renderAll();
+      showToast("Record not found; the data may have been reloaded.");
+      return null;
+    }
+    state.selectedId = updated.id;    
     renderAll();
     return updated;
   }
@@ -407,6 +414,13 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
 
     // Telegram belum disambungkan: yang terjadi hanya perubahan status di browser ini, tidak ada pesan yang terkirim.
     const updated = dataStore.updateAnomaly(record.id, { status: "Sent", remarks: "Marked as sent (simulation; Telegram is not connected yet)" });
+    if (!updated) {
+      closeAlertPreview();
+      syncRecords();
+      renderAll();
+      showToast("Record not found; the alert was not sent.");
+      return;
+    }
     dataStore.addAlertHistory({
       id: `hist-${Date.now()}`,
       sentAt: dataStore.formatNowWib(),
@@ -467,7 +481,7 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
     });
 
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeAlertPreview();
+      if (event.key === "Escape" && elements.modal.classList.contains("is-open")) closeAlertPreview();      
     });
   }
 

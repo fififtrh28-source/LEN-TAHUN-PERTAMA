@@ -83,7 +83,7 @@ async function processRow(row) {
       row.sog_cog_completion_note = gfw.fill.note;
       row.sog_cog_completion_track_window_days = String(gfw.fill.windowDays);
       row.sog_cog_completion_nearest_track_time = gfw.fill.nearestTime ?? "";
-      row.sog_cog_completion_nearest_track_minutes = gfw.fill.nearestMinutes != null ? formatNumber(gfw.fill.nearestMinutes, 3) : "";
+      row.sog_cog_completion_nearest_track_minutes = gfw.fill.nearestMinutes !== null && gfw.fill.nearestMinutes !== undefined ? formatNumber(gfw.fill.nearestMinutes, 3) : "";
 
       if (gfw.fill.kind === "filled_from_gfw_track_observed_speed_course") filledFromGfwObserved += 1;
       if (gfw.fill.kind === "filled_from_gfw_track_computed_neighbor_pair") filledFromGfwComputedPair += 1;
@@ -149,29 +149,34 @@ writeFileSync(reportPath, report, "utf8");
 console.log(report);
 
 async function lookupGfwTrack(vesselId, sceneTime) {
+  // M-074: window bertingkat (1 ⊂ 3 ⊂ 7 ⊂ 14 hari). Track diambil sekali untuk window terbesar,
+  // lalu tiap window disaring lokal tanpa request tambahan. Aman karena track.js sudah memakai pagination (C-7).
+  const maxDays = Math.max(...windows);
+  const fetchStart = dateOnly(addDays(sceneTime, -maxDays));
+  const fetchEnd = dateOnly(addDays(sceneTime, maxDays + 1));
+  const key = `${vesselId}|${fetchStart}|${fetchEnd}`;
+  if (!trackCache.has(key)) trackCache.set(key, fetchTrackData(vesselId, fetchStart, fetchEnd));
+  const data = await trackCache.get(key);
+
+  const fullTrack = Array.isArray(data?.track) ? data.track
+    .map((p) => ({
+      ...p,
+      lat: number(p.lat),
+      lon: number(p.lon),
+      speed: number(p.speed),
+      course: number(p.course),
+      time: parseDate(p.timestamp),
+    }))
+    .filter((p) => finiteLatLon(p.lat, p.lon) && p.time)
+    .sort((a, b) => a.time - b.time) : [];
+
+  if (!fullTrack.length) return data?.error ? { error: true } : { noTrack: true };
+
   for (const windowDays of windows) {
-    const start = dateOnly(addDays(sceneTime, -windowDays));
-    const end = dateOnly(addDays(sceneTime, windowDays + 1));
-    const key = `${vesselId}|${start}|${end}`;
-    if (!trackCache.has(key)) trackCache.set(key, fetchTrackData(vesselId, start, end));
-    const data = await trackCache.get(key);      
-
-    const track = Array.isArray(data?.track) ? data.track
-      .map((p) => ({
-        ...p,
-        lat: number(p.lat),
-        lon: number(p.lon),
-        speed: number(p.speed),
-        course: number(p.course),
-        time: parseDate(p.timestamp),
-      }))
-      .filter((p) => finiteLatLon(p.lat, p.lon) && p.time)
-      .sort((a, b) => a.time - b.time) : [];
-
-    if (!track.length) {
-      if (data?.error) return { error: true };
-      continue;
-    }
+    const startMs = Date.parse(`${dateOnly(addDays(sceneTime, -windowDays))}T00:00:00Z`);
+    const endMs = Date.parse(`${dateOnly(addDays(sceneTime, windowDays + 1))}T00:00:00Z`);
+    const track = fullTrack.filter((p) => p.time >= startMs && p.time < endMs);
+    if (!track.length) continue;
 
     const nearest = nearestPoint(track, sceneTime);
     if (nearest && Number.isFinite(nearest.speed) && Number.isFinite(nearest.course)) {

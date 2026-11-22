@@ -1,3 +1,14 @@
+function showLoadError() {
+  const note = document.getElementById("data-source-note");
+  if (note && !note.dataset.error) {
+    note.dataset.error = "1";
+    note.textContent = "Some page data failed to load. Please reload the page.";
+    note.setAttribute("role", "alert");
+  }
+}
+window.addEventListener("error", showLoadError);
+window.addEventListener("unhandledrejection", showLoadError);
+
 import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
 
 (function () {
@@ -135,7 +146,12 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
           <td data-status-slot></td>
         </tr>
       `).join("");
-      elements.tableBody.querySelectorAll("[data-status-slot]").forEach((cell, i) => cell.append(createStatusBadge(rows[i].status)));
+      const byId = new Map(rows.map((record) => [record.id, record]));
+      elements.tableBody.querySelectorAll("tr[data-id]").forEach((tr) => {
+        const record = byId.get(tr.dataset.id);
+        const cell = tr.querySelector("[data-status-slot]");
+        if (record && cell) cell.append(createStatusBadge(record.status));
+      });   
     }
 
     renderPagination(elements.pagination, {
@@ -292,8 +308,16 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
   async function downloadReportPdf() {
     const records = state.reportRecords.length ? state.reportRecords : getReportRecords();
     if (!records.length) return;
-    const blob = await createPdfBlob(records);
-    downloadBlob(blob, "ocean-nexus-vessel-anomaly-report.pdf");
+    elements.downloadPdf.disabled = true;
+    try {
+      const blob = await createPdfBlob(records);
+      downloadBlob(blob, "ocean-nexus-vessel-anomaly-report.pdf");
+    } catch (error) {
+      console.error("[data-reports] gagal membuat PDF:", error);
+      alert("Failed to create the PDF report. Please try again.");
+    } finally {
+      elements.downloadPdf.disabled = false;
+    }
   }
 
   function downloadBlob(blob, filename) {
@@ -304,7 +328,7 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);    
   }
 
   function getPeriod(records) {
@@ -391,7 +415,9 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
   function cleanPdfText(value) {
     return String(value ?? "")
       .replace(/\u00b0/g, " deg")
-      .replace(/[^\x20-\x7E]/g, "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\x20-\x7E]/g, "?")      
       .replace(/\\/g, "\\\\")
       .replace(/\(/g, "\\(")
       .replace(/\)/g, "\\)");
@@ -455,13 +481,16 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
             bytes: base64ToBytes(dataUrl.split(",")[1]),
           });
         } catch (error) {
+          console.warn("[data-reports] gambar tidak bisa diproses untuk PDF, dilewati:", src, error);
           resolve(null);
         }
       };
       image.onerror = () => {
         clearTimeout(timer);
+        console.warn("[data-reports] gambar gagal dimuat untuk PDF, dilewati:", src);
         resolve(null);
       };
+
       image.src = src;
     });
   }
@@ -589,7 +618,7 @@ import { PAGE_SIZE, renderPagination } from "./onx-pagination.js";
     const lines = [];
     let current = "";
     words.forEach((word) => {
-      if (`${current} ${word}`.trim().length > maxLength) {
+      if (current && `${current} ${word}`.length > maxLength) {        
         lines.push(current);
         current = word;
       } else {

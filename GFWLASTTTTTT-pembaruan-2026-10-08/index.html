@@ -1202,9 +1202,9 @@
             <strong>OCEAN NEXUS 2026</strong>
           </a>
           <div class="partner-logos" aria-label="Partner logos">
-            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak">
+            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN">
+            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember">
           </div>
           <nav class="nav-links" aria-label="Welcome navigation">
             <button type="button" data-modal="about" data-i18n="nav.about">About</button>
@@ -1260,9 +1260,9 @@
             <strong>OCEAN NEXUS 2026</strong>
           </a>
           <div class="partner-logos" aria-label="Partner logos">
-            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak">
+            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN">
+            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember">
           </div>
         </header>
         <div class="login-copy">
@@ -1339,9 +1339,9 @@
             <strong>OCEAN NEXUS 2026</strong>
           </a>
           <div class="partner-logos" aria-label="Partner logos">
-            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN" onerror="this.classList.add('is-missing')">
-            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember" onerror="this.classList.add('is-missing')">
+            <img class="partner-logo kemdik" src="assets/logos/kemendiktisaintek.png" alt="Kemendiktisaintek Berdampak">
+            <img class="partner-logo len" src="assets/logos/len.png" alt="PT LEN">
+            <img class="partner-logo its" src="assets/logos/its.png" alt="Institut Teknologi Sepuluh Nopember">
           </div>
           <nav class="nav-links" aria-label="Option navigation">
             <button type="button" data-go="0" data-i18n="nav.home">Home</button>
@@ -1466,7 +1466,16 @@
     // F3-S: halaman lain yang butuh login mengarahkan ke sini dengan ?next=/alamat-halaman. Hanya alamat di website
     // ini sendiri yang diterima (diawali satu "/"), supaya tidak bisa dipakai untuk mengarahkan ke situs lain.
     const pageParams = new URLSearchParams(location.search);
-    const nextTarget = /^\/(?![\/\\])/.test(pageParams.get("next") || "") ? pageParams.get("next") : "";
+    function safeNext(value) {
+      if (!/^\/(?![\/\\])[^\u0000-\u001f\u007f\\]*$/.test(value)) return "";
+      try {
+        const url = new URL(value, location.origin);
+        return url.origin === location.origin ? url.pathname + url.search : "";
+      } catch (error) {
+        return "";
+      }
+    }
+    const nextTarget = safeNext(pageParams.get("next") || "");    
     const signedOut = pageParams.get("keluar") === "1";
 
     const translations = {
@@ -1650,6 +1659,27 @@
       });
     }
 
+    // M-064: HTML dari terjemahan dan modal hanya boleh berisi tag dan atribut di daftar ini.
+    const ALLOWED_HTML = {
+      P: [], SPAN: [], FORM: ["class"], LABEL: [], INPUT: ["value", "aria-label"],
+      SELECT: ["aria-label"], OPTION: [], TEXTAREA: ["aria-label"], BUTTON: ["type", "data-close-modal"],
+    };
+    function setSafeHtml(node, html) {
+      const template = document.createElement("template");
+      template.innerHTML = html;
+      template.content.querySelectorAll("*").forEach((el) => {
+        const allowed = ALLOWED_HTML[el.tagName];
+        if (!allowed) {
+          el.replaceWith(document.createTextNode(el.textContent));
+          return;
+        }
+        Array.from(el.attributes).forEach((attr) => {
+          if (!allowed.includes(attr.name)) el.removeAttribute(attr.name);
+        });
+      });
+      node.replaceChildren(template.content);
+    }
+
     function setLanguage(nextLanguage) {
       language = nextLanguage === "id" ? "id" : "en";
       document.documentElement.lang = language === "id" ? "id" : "en";
@@ -1664,7 +1694,7 @@
         node.textContent = translations[language][node.dataset.i18n] || "";
       });
       document.querySelectorAll("[data-i18n-html]").forEach((node) => {
-        node.innerHTML = translations[language][node.dataset.i18nHtml] || "";
+        setSafeHtml(node, translations[language][node.dataset.i18nHtml] || "");        
       });
       document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
         node.placeholder = translations[language][node.dataset.i18nPlaceholder] || "";
@@ -1688,7 +1718,7 @@
       activeModalType = type;
       modalLabel.textContent = content.label;
       modalTitle.textContent = content.title;
-      modalBody.innerHTML = content.body;
+      setSafeHtml(modalBody, content.body);      
       modal.classList.add("open");
       modal.setAttribute("aria-hidden", "false");
       closeLanguageMenus();
@@ -1744,9 +1774,20 @@
 
     document.addEventListener("click", closeLanguageMenus);
 
-    document.getElementById("toggle-password").addEventListener("click", () => {
+    document.querySelectorAll(".partner-logos").forEach((container) => {
+      container.addEventListener("error", (event) => {
+        if (event.target.classList?.contains("partner-logo")) event.target.classList.add("is-missing");
+      }, true);
+      container.querySelectorAll(".partner-logo").forEach((img) => {
+        if (img.complete && img.naturalWidth === 0) img.classList.add("is-missing");
+      });
+    });
+        
+    document.getElementById("toggle-password").addEventListener("click", (event) => {
       const password = document.getElementById("password");
-      password.type = password.type === "password" ? "text" : "password";
+      const showing = password.type === "password";
+      password.type = showing ? "text" : "password";
+      event.currentTarget.setAttribute("aria-label", showing ? "Hide password" : "Show password");
     });
 
     // Nama pengguna dan kata sandi diperiksa di server (api/auth/login.js); kode halaman ini tidak menyimpannya.

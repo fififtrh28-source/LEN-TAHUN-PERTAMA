@@ -169,6 +169,17 @@ a {
   background: rgba(255, 255, 255, 0.06);
 }
 
+/* M-044 / C-5: penanda fokus keyboard untuk semua tombol interaktif. */
+.onx-icon-button:focus-visible,
+.onx-menu-button:focus-visible,
+.onx-tabs button:focus-visible,
+.onx-button:focus-visible,
+.onx-page-btn:focus-visible,
+.onx-close:focus-visible {
+  outline: 2px solid #8fdcff;
+  outline-offset: 2px;
+}
+
 /* Tombol tiga garis di sebelah logo: menampilkan / menyembunyikan menu samping (assets/js/onx-nav.js). */
 .onx-menu-button {
   flex: 0 0 auto;
@@ -298,7 +309,6 @@ a {
   border-radius: 8px;
   background: rgba(3, 31, 50, 0.72);
   box-shadow: 0 18px 52px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(14px);
 }
 
 .onx-stat {
@@ -559,6 +569,8 @@ a {
 .onx-detail {
   position: sticky;
   top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
 }
 
 .onx-detail-body {
@@ -719,7 +731,6 @@ a {
   border-radius: 8px;
   padding: 8px 10px;
   background: rgba(1, 18, 30, 0.82);
-  backdrop-filter: blur(10px);
 }
 
 .onx-map-toolbar span,
@@ -939,6 +950,8 @@ a {
 .onx-preview {
   position: sticky;
   top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
 }
 
 .onx-preview-body {
@@ -1043,8 +1056,10 @@ a {
   .onx-detail,
   .onx-preview {
     position: static;
+    max-height: none;
+    overflow: hidden;
   }
-
+  
   .onx-filter-panel,
   .onx-filter-panel.is-reports {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
@@ -1322,6 +1337,15 @@ body.onx-light {
   background: #ffffff;
 }
 
+.onx-light .onx-icon-button:focus-visible,
+.onx-light .onx-menu-button:focus-visible,
+.onx-light .onx-tabs button:focus-visible,
+.onx-light .onx-button:focus-visible,
+.onx-light .onx-page-btn:focus-visible,
+.onx-light .onx-close:focus-visible {
+  outline-color: #075f92;
+}
+
 .onx-light .onx-alert-preview {
   margin: 16px 20px;
   border: 1px solid #d9e4ee;
@@ -1381,4 +1405,8 @@ body.onx-light {
   .onx-light .onx-sidebar {
     border-bottom: 1px solid #d9e4ee;
   }
+}
+
+.onx-source-note {
+  font-size: 13px;
 }
