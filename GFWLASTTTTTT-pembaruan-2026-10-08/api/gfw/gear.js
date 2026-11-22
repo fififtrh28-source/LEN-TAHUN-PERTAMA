@@ -11,12 +11,14 @@ const GFW_BASE = "https://gateway.api.globalfishingwatch.org/v3";
 const GFW_IDENTITY_DATASET = "public-global-vessel-identity:latest";
 const MAX_IDS = 1000;
 const GFW_BATCH = 100;
+const GFW_CONCURRENCY = 4;                // M-023: paling banyak 4 batch berjalan bersamaan
 const CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 const EMPTY_TTL_SECONDS = 15 * 60;        // T-11: hasil kosong (null) hanya disimpan 15 menit, lalu dicoba lagi
 const VESSEL_ID_RE = /^[0-9a-f-]{20,64}$/i;
 
 function cacheKey(id) {
-  return `gfw:gear:v2:${id}`; // v2: aturan pencocokan K-10/T-10 berubah, cache v1 tidak dipakai lagi
+  // v3: pemilihan alat tangkap saat yearTo kosong diperbaiki (X-6), cache v2 tidak dipakai lagi
+  return `gfw:gear:v3:${id}`;
 }
 
 function readIds(req) {
@@ -24,6 +26,15 @@ function readIds(req) {
   if (typeof raw === "string") raw = raw.split(",");
   if (!Array.isArray(raw)) return [];
   return [...new Set(raw.map((id) => String(id).trim()).filter((id) => VESSEL_ID_RE.test(id)))].slice(0, MAX_IDS);
+}
+
+// X-6: yearTo kosong/hilang/bukan angka dianggap paling lama (sama dengan M-128 di server/vessel-identity.mjs).
+// Dulu Number(undefined) = NaN dan NaN > x selalu false, sehingga entri pertama tanpa yearTo tidak pernah tergantikan.
+function yearToOf(item) {
+  const v = item?.yearTo;
+  if (v === null || v === undefined || v === "") return -Infinity;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : -Infinity;
 }
 
 // Pilih info sumber yang memuat vesselId ini, lalu alat tangkap dengan tahun berlaku paling akhir.
@@ -34,7 +45,7 @@ function pickGear(entry, id) {
   if (!info) return null;
   const gears = info?.geartypes || [];
   if (!gears.length) return null;
-  const latest = gears.reduce((a, b) => (Number(b.yearTo) > Number(a.yearTo) ? b : a));
+  const latest = gears.reduce((a, b) => (yearToOf(b) > yearToOf(a) ? b : a));
   return { name: latest.name, source: latest.source, yearFrom: latest.yearFrom, yearTo: latest.yearTo };
 }
 
@@ -62,6 +73,31 @@ async function fetchGearBatch(ids, token) {
   return found;
 }
 
+// M-023: batch dijalankan bersamaan (paling banyak GFW_CONCURRENCY sekaligus), bukan satu per satu, sehingga
+// 1000 ID (10 batch) selesai dalam ±3 putaran, bukan 10. Batch yang gagal tidak menghentikan batch lain.
+async function fetchAllBatches(missing, token, gear) {
+  const batches = [];
+  for (let i = 0; i < missing.length; i += GFW_BATCH) batches.push(missing.slice(i, i + GFW_BATCH));
+  const errors = [];
+  let next = 0;
+  async function worker() {
+    while (next < batches.length) {
+      const batch = batches[next++];
+      try {
+        const found = await fetchGearBatch(batch, token);
+        await Promise.all(batch.map((id) => {
+          gear[id] = found[id] ?? null;
+          return cacheSet(cacheKey(id), { gear: gear[id] }, gear[id] ? CACHE_TTL_SECONDS : EMPTY_TTL_SECONDS);
+        }));
+      } catch (e) {
+        errors.push(e);
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(GFW_CONCURRENCY, batches.length) }, worker));
+  return errors;
+}
+
 export default async function handler(req, res) {
   const ids = readIds(req);
   if (!ids.length) return res.json({ gear: {} });
@@ -85,18 +121,10 @@ export default async function handler(req, res) {
     const token = gfwToken();
     if (!token) return sendProblem(res, 500, "GFW_API_TOKEN not configured", { gear });
 
-    try {
-      for (let i = 0; i < missing.length; i += GFW_BATCH) {
-        const batch = missing.slice(i, i + GFW_BATCH);
-        const found = await fetchGearBatch(batch, token);
-        await Promise.all(batch.map((id) => {
-          gear[id] = found[id] ?? null;
-          return cacheSet(cacheKey(id), { gear: gear[id] }, gear[id] ? CACHE_TTL_SECONDS : EMPTY_TTL_SECONDS);
-        }));
-      }
-    } catch (e) {
-      console.error("[gfw gear]", e); // R-016: error lengkap (dengan stack) hanya di log server
-      return res.json({ gear, warning: e?.message || "gear lookup failed" });
+    const errors = await fetchAllBatches(missing, token, gear);
+    if (errors.length) {
+      console.error("[gfw gear]", errors[0]); // R-016: error lengkap (dengan stack) hanya di log server
+      return res.json({ gear, warning: errors[0]?.message || "gear lookup failed" });
     }
   }
 
