@@ -1,8 +1,8 @@
 // Penomoran halaman tabel, dipakai Anomaly Alert Center dan Data & Reports:
 // "Showing 1 to 10 of 365 entries" di kiri, tombol nomor halaman di kanan.
 export const PAGE_SIZE = 10;
+const clickHandlers = new WeakMap();
 function esc(value) {
-  const clickHandlers = new WeakMap();
   return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 }
 
