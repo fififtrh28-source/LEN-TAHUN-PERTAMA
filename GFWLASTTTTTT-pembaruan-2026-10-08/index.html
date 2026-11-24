@@ -49,32 +49,104 @@
       -webkit-tap-highlight-color: transparent;
     }
 
+    /* Latar: peta perairan Indonesia dengan kapal AIS bergerak (assets/js/peta-kapal.js).
+       Kalau JavaScript/kanvas tidak jalan, gradasi biru di bawah ini tetap tampil. */
     .map-backdrop {
       position: fixed;
-      inset: -20px;
+      inset: 0;
       z-index: -3;
       overflow: hidden;
-      background: #0b314c;
-      filter: saturate(1.1) contrast(1.04);
-    }
-
-    .map-backdrop iframe {
-      width: 100%;
-      height: 100%;
-      border: 0;
-      opacity: 0.58;
       pointer-events: none;
-      transform: scale(1.03);
-      transform-origin: center;
+      background:
+        radial-gradient(circle at 70% 40%, rgba(10, 132, 198, 0.28), transparent 55%),
+        linear-gradient(135deg, #0b1726 0%, #0b314c 60%, #0b1726 100%);
     }
 
+    .peta-kapal {
+      position: absolute;
+      inset: 0;
+    }
+
+    .peta-kapal canvas {
+      display: block;
+    }
+
+    /* Lapisan gelap tipis di kiri, atas, dan bawah supaya tulisan di atasnya selalu terbaca */
     .map-backdrop::after {
       content: "";
       position: absolute;
       inset: 0;
       background:
-        linear-gradient(90deg, rgba(3, 21, 34, 0.82), rgba(3, 21, 34, 0.35) 52%, rgba(3, 21, 34, 0.78)),
-        linear-gradient(180deg, rgba(6, 58, 85, 0.28), rgba(2, 12, 22, 0.72));
+        linear-gradient(90deg, rgba(2, 12, 24, 0.78) 0%, rgba(2, 12, 24, 0.42) 32%, rgba(2, 12, 24, 0.06) 58%, rgba(2, 12, 24, 0) 100%),
+        linear-gradient(0deg, rgba(2, 12, 24, 0.45) 0%, rgba(2, 12, 24, 0) 22%),
+        linear-gradient(180deg, rgba(2, 12, 24, 0.5) 0%, rgba(2, 12, 24, 0) 16%);
+    }
+
+    .peta-legenda {
+      position: absolute;
+      z-index: 1;
+      right: 16px;
+      bottom: 26px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px 12px;
+      max-width: 330px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: rgba(8, 18, 30, 0.72);
+      color: #dbe9f5;
+      font-size: 11px;
+      backdrop-filter: blur(6px);
+    }
+
+    .peta-legenda span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .peta-legenda i {
+      width: 10px;
+      height: 7px;
+      clip-path: polygon(100% 50%, 0 0, 18% 50%, 0 100%);
+    }
+
+    .peta-legenda b {
+      font-weight: 400;
+    }
+
+    .peta-legenda .merah i {
+      width: 9px;
+      height: 9px;
+      clip-path: none;
+      border: 2px solid #ff2d2d;
+      border-radius: 50%;
+      background: transparent;
+    }
+
+    .peta-legenda .catatan {
+      width: 100%;
+      justify-content: flex-end;
+      color: #8fa6ba;
+      font-size: 10px;
+    }
+
+    .peta-atribusi {
+      position: absolute;
+      z-index: 1;
+      right: 16px;
+      bottom: 6px;
+      color: rgba(220, 232, 245, 0.75);
+      font-size: 10px;
+    }
+
+    /* Layar sempit: legenda disembunyikan supaya tidak menutupi tombol */
+    @media (max-width: 1440px), (max-height: 640px) {
+      .peta-legenda {
+        display: none;
+      }
     }
 
     .app {
@@ -1186,11 +1258,344 @@
         display: none;
       }
     }
+    /* =====================================================================
+       TAMPILAN BARU (desain homepage-peta-terbaru): layar penuh di atas peta.
+       Tanpa bingkai kartu; tulisan langsung di atas peta, kotak login kaca di kanan,
+       kartu menu kaca gelap. Aturan di bawah ini menimpa aturan lama di atasnya.
+       ===================================================================== */
+    body {
+      background: #0b1726;
+    }
+
+    .app {
+      align-items: stretch;
+      padding: 18px clamp(24px, 5vw, 72px) 16px;
+      background: transparent;
+    }
+
+    .screen {
+      width: 100%;
+      min-height: calc(100vh - 34px);
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      background: transparent;
+      overflow: visible;
+    }
+
+    .screen::before {
+      content: none;
+    }
+
+    .screen.active {
+      animation: none;
+    }
+
+    .brand-row {
+      padding: 0;
+    }
+
+    .brand-mark strong {
+      letter-spacing: 0.04em;
+    }
+
+    .nav-links button:hover {
+      color: var(--sky);
+    }
+
+    @keyframes naik {
+      from {
+        opacity: 0;
+        transform: translateY(26px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @keyframes muncul {
+      from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.94);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    /* ---- Layar 0: Welcome (rata kiri, pita kecil di atas judul) ---- */
+    .hero-center {
+      align-self: start;
+      justify-self: start;
+      width: min(760px, 100%);
+      padding: 11vh 0 40px;
+      text-align: left;
+      animation: naik 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .hero-center .eyebrow {
+      display: inline-block;
+      max-width: 100%;
+      margin: 0 0 18px;
+      color: var(--sky);
+      line-height: 1.3;
+      padding: 7px 14px;
+      border: 1px solid rgba(143, 220, 255, 0.35);
+      border-radius: 999px;
+      background: rgba(6, 30, 50, 0.45);
+      backdrop-filter: blur(8px);
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      text-shadow: none;
+    }
+
+    .eyebrow span + span::before {
+      content: " ";
+    }
+
+    .hero-center h1 {
+      margin-top: 4px;
+    }
+
+    .hero-center p {
+      max-width: 560px;
+      margin: 20px 0 0;
+    }
+
+    .action-row {
+      justify-content: flex-start;
+      margin-top: 30px;
+    }
+
+    .primary-button {
+      border-radius: 10px;
+      font-weight: 700;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+    }
+
+    .primary-button:hover {
+      transform: translateY(-2px);
+      color: #06314b;
+      background: linear-gradient(180deg, #bcecff, #79cfff);
+    }
+
+    .screen-footer {
+      padding: 0 0 10px;
+    }
+
+    /* ---- Layar 1: Login (judul di kiri di atas peta, kotak login kaca di kanan) ---- */
+    .login-screen {
+      grid-template-columns: 1.2fr 1fr;
+      background: transparent;
+    }
+
+    .login-left,
+    .login-right {
+      padding: 0;
+      background: transparent;
+    }
+
+    .login-left::before,
+    .login-right::before {
+      content: none;
+    }
+
+    .login-left {
+      grid-template-rows: 72px 1fr auto;
+      padding-bottom: 10px;
+    }
+
+    .login-left > .dots {
+      left: 0;
+      bottom: 10px;
+    }
+
+    .login-right {
+      grid-template-rows: 72px 1fr;
+      color: var(--ink);
+    }
+
+    .login-right .brand-row {
+      color: var(--ink);
+    }
+
+    .login-copy {
+      align-self: start;
+      padding-top: 18vh;
+    }
+
+    .login-copy h2 {
+      max-width: 420px;
+      font-size: clamp(38px, 5vw, 56px);
+    }
+
+    .login-card-wrap {
+      place-items: start end;
+      padding: 6vh 0 0;
+    }
+
+    .login-card {
+      width: min(480px, 100%);
+      padding: clamp(26px, 3vw, 40px);
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: 16px;
+      background: rgba(248, 252, 255, 0.88);
+      box-shadow: 0 30px 80px rgba(0, 10, 25, 0.45);
+      backdrop-filter: blur(18px) saturate(1.2);
+      animation: muncul 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    .login-card .field-stack {
+      margin-top: 22px;
+    }
+
+    .login-submit {
+      height: 50px;
+      border-radius: 10px;
+    }
+
+    .field input {
+      border-radius: 10px;
+    }
+
+    /* ---- Layar 2: Choose Your Path (kartu kaca gelap, muncul bergantian) ---- */
+    .option-title {
+      padding-top: 3vh;
+    }
+
+    .option-title p {
+      margin: 12px auto 0;
+    }
+
+    .option-grid {
+      align-self: start;
+      width: min(760px, 100%);
+      gap: 14px;
+      padding: 26px 0 30px;
+    }
+
+    .option-card {
+      min-height: 0;
+      grid-template-columns: 64px 1fr 48px;
+      padding: 18px 22px;
+      border: 1px solid rgba(190, 231, 255, 0.32);
+      border-radius: 16px;
+      background: rgba(3, 26, 44, 0.62);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(16px) saturate(1.2);
+      animation: naik 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .option-card:nth-child(2) {
+      animation-delay: 0.08s;
+    }
+
+    .option-card:nth-child(3) {
+      animation-delay: 0.16s;
+    }
+
+    .option-card:hover {
+      transform: translateY(-3px);
+      background: rgba(4, 52, 82, 0.78);
+    }
+
+    .option-card.featured {
+      border-color: rgba(190, 231, 255, 0.32);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    }
+
+    .option-icon {
+      width: 64px;
+      height: 64px;
+    }
+
+    .option-card h3 {
+      margin-bottom: 4px;
+      font-size: clamp(22px, 2.3vw, 28px);
+      line-height: 1.15;
+    }
+
+    .option-card p {
+      font-size: 14.5px;
+      line-height: 1.45;
+    }
+
+    .card-button {
+      border-color: rgba(143, 220, 255, 0.9);
+      color: #06314b;
+      background: linear-gradient(180deg, #bcecff, #79cfff);
+    }
+
+    .ghost-button {
+      border-radius: 10px;
+      min-width: 150px;
+      background: transparent;
+    }
+
+    /* Pengguna yang memilih "kurangi animasi" di sistemnya: tanpa animasi muncul */
+    @media (prefers-reduced-motion: reduce) {
+      .hero-center,
+      .login-card,
+      .option-card {
+        animation: none;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .login-screen {
+        grid-template-columns: 1fr;
+        background: transparent;
+      }
+
+      .login-copy {
+        padding-top: 4vh;
+      }
+
+      .login-copy h2 {
+        font-size: 34px;
+      }
+
+      .login-left > .dots {
+        position: static;
+      }
+
+      .login-card-wrap {
+        place-items: start center;
+        padding: 3vh 0 0;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .hero-center {
+        padding-top: 6vh;
+      }
+
+      .option-card {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="map-backdrop" aria-hidden="true">
-    <iframe src="map-background-preview.html" title="Ocean Nexus vessel point map background"></iframe>
+    <div class="peta-kapal" id="peta-kapal" data-layar="0" data-bahasa="en" data-suasana="malam"></div>
+    <div class="peta-legenda">
+      <span><i style="background:#8cc63f"></i><b data-i18n="map.cargo">Cargo</b></span>
+      <span><i style="background:#e8443a"></i><b data-i18n="map.tanker">Tanker</b></span>
+      <span><i style="background:#2f6fe4"></i><b data-i18n="map.passenger">Passenger</b></span>
+      <span><i style="background:#f28b82"></i><b data-i18n="map.fishing">Fishing</b></span>
+      <span><i style="background:#22c3d6"></i><b data-i18n="map.tug">Tug</b></span>
+      <span><i style="background:#d946ef"></i><b data-i18n="map.leisure">Leisure</b></span>
+      <span class="merah"><i></i><b data-i18n="map.crime">Suspected ocean crime</b></span>
+      <span class="catatan" data-i18n="map.simulated">Simulated AIS traffic</span>
+    </div>
+    <div class="peta-atribusi" id="peta-atribusi"></div>
   </div>
 
   <div class="app">
@@ -1512,6 +1917,14 @@
         "option.backTitle": "Back to Main Menu",
         "option.backBody": "Return to the Ocean Nexus 2026 welcome page.",
         "option.alertStatus": "Alert panel opened.",
+        "map.cargo": "Cargo",
+        "map.tanker": "Tanker",
+        "map.passenger": "Passenger",
+        "map.fishing": "Fishing",
+        "map.tug": "Tug",
+        "map.leisure": "Leisure",
+        "map.crime": "Suspected ocean crime",
+        "map.simulated": "Simulated AIS traffic",
       },
       id: {
         "page.title": "Ocean Nexus 2026 Dashboard",
@@ -1546,6 +1959,14 @@
         "option.backTitle": "Kembali ke Menu Utama",
         "option.backBody": "Kembali ke halaman awal Ocean Nexus 2026.",
         "option.alertStatus": "Panel Kirim Alert dibuka.",
+        "map.cargo": "Kargo",
+        "map.tanker": "Tanker",
+        "map.passenger": "Penumpang",
+        "map.fishing": "Kapal ikan",
+        "map.tug": "Kapal tunda",
+        "map.leisure": "Wisata",
+        "map.crime": "Dugaan ocean crime",
+        "map.simulated": "Simulasi lalu lintas AIS",
       },
     };
 
@@ -1642,6 +2063,9 @@
         screen.classList.toggle("active", i === current);
       });
       updateDots();
+      // Latar peta (assets/js/peta-kapal.js) mengamati atribut ini: kamera menjauh / zoom ke kapal / dekat
+      const petaKapal = document.getElementById("peta-kapal");
+      if (petaKapal) petaKapal.dataset.layar = String(current);
     }
 
     function updateDots() {
@@ -1684,6 +2108,8 @@
       language = nextLanguage === "id" ? "id" : "en";
       document.documentElement.lang = language === "id" ? "id" : "en";
       document.title = translations[language]["page.title"];
+      const petaBahasa = document.getElementById("peta-kapal");
+      if (petaBahasa) petaBahasa.dataset.bahasa = language;
       document.querySelectorAll("[data-language-current]").forEach((label) => {
         label.textContent = language === "id" ? "IN" : "EN";
       });
@@ -1869,5 +2295,6 @@
       showScreen(1);
     }
   </script>
+  <script type="module" src="assets/js/peta-kapal.js"></script>
 </body>
 </html>
