@@ -240,3 +240,5 @@ Sistem akhir diharapkan mampu menyediakan **single integrated maritime picture**
 *AIS • SAR • Artificial Intelligence • Data Fusion*
 
 </p>
+
+Deploy 2026-11-26
