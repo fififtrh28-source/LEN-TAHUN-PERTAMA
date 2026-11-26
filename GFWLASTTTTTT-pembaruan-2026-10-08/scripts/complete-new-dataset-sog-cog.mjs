@@ -14,7 +14,14 @@ const outputPath = join(parsed.dir, `${parsed.base}_completed${parsed.ext}`);
 const reportPath = join(parsed.dir, `${parsed.base}_completed_report.txt`);
 const lookupPath = join(parsed.dir, `${parsed.base}_still_missing_sog_cog.csv`);
 
-const csv = readFileSync(inputPath, "utf8");
+let csv;
+try {
+  csv = readFileSync(inputPath, "utf8");
+} catch (err) {
+  console.error(`Gagal membaca input CSV: ${inputPath} (${err.code ?? err.message})`);
+  process.exit(1);
+}
+
 const { headers, rows } = parseCsv(csv);
 
 const addedColumns = [
@@ -43,9 +50,11 @@ let gfwErrors = 0;
 
 const trackCache = new Map();
 const windows = [1, 3, 7, 14];
+const API_BASE = (process.env.ONX_API_BASE || "http://127.0.0.1:5175").replace(/\/+$/, "");
 
-for (let i = 0; i < rows.length; i += 1) {
-  const row = rows[i];
+const CONCURRENCY = Math.max(1, Number(process.env.GFW_CONCURRENCY) || 4);
+
+async function processRow(row) {
   row.sog_cog_completion_scene_timestamp_utc = sceneTimestamp(row);
   row.sog_cog_completion_track_window_days = "";
   row.sog_cog_completion_nearest_track_time = "";
@@ -56,7 +65,7 @@ for (let i = 0; i < rows.length; i += 1) {
     row.sog_cog_completion_status = "already_complete";
     row.sog_cog_completion_source = "existing_dataset_columns";
     row.sog_cog_completion_note = "";
-    continue;
+    return;
   }
 
   const sceneTime = parseDate(row.sog_cog_completion_scene_timestamp_utc);
@@ -74,7 +83,7 @@ for (let i = 0; i < rows.length; i += 1) {
       row.sog_cog_completion_note = gfw.fill.note;
       row.sog_cog_completion_track_window_days = String(gfw.fill.windowDays);
       row.sog_cog_completion_nearest_track_time = gfw.fill.nearestTime ?? "";
-      row.sog_cog_completion_nearest_track_minutes = gfw.fill.nearestMinutes != null ? formatNumber(gfw.fill.nearestMinutes, 3) : "";
+      row.sog_cog_completion_nearest_track_minutes = gfw.fill.nearestMinutes !== null && gfw.fill.nearestMinutes !== undefined ? formatNumber(gfw.fill.nearestMinutes, 3) : "";
 
       if (gfw.fill.kind === "filled_from_gfw_track_observed_speed_course") filledFromGfwObserved += 1;
       if (gfw.fill.kind === "filled_from_gfw_track_computed_neighbor_pair") filledFromGfwComputedPair += 1;
@@ -98,6 +107,16 @@ for (let i = 0; i < rows.length; i += 1) {
     }
   }
 }
+
+let nextRowIndex = 0;
+async function worker() {
+  while (nextRowIndex < rows.length) {
+    const row = rows[nextRowIndex];
+    nextRowIndex += 1;
+    await processRow(row);
+  }
+}
+await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
 writeFileSync(outputPath, stringifyCsv(outputHeaders, rows), "utf8");
 writeFileSync(lookupPath, stringifyCsv(outputHeaders, rows.filter(hasMissingSogOrCog)), "utf8");
@@ -130,38 +149,34 @@ writeFileSync(reportPath, report, "utf8");
 console.log(report);
 
 async function lookupGfwTrack(vesselId, sceneTime) {
+  // M-074: window bertingkat (1 ⊂ 3 ⊂ 7 ⊂ 14 hari). Track diambil sekali untuk window terbesar,
+  // lalu tiap window disaring lokal tanpa request tambahan. Aman karena track.js sudah memakai pagination (C-7).
+  const maxDays = Math.max(...windows);
+  const fetchStart = dateOnly(addDays(sceneTime, -maxDays));
+  const fetchEnd = dateOnly(addDays(sceneTime, maxDays + 1));
+  const key = `${vesselId}|${fetchStart}|${fetchEnd}`;
+  if (!trackCache.has(key)) trackCache.set(key, fetchTrackData(vesselId, fetchStart, fetchEnd));
+  const data = await trackCache.get(key);
+
+  const fullTrack = Array.isArray(data?.track) ? data.track
+    .map((p) => ({
+      ...p,
+      lat: number(p.lat),
+      lon: number(p.lon),
+      speed: number(p.speed),
+      course: number(p.course),
+      time: parseDate(p.timestamp),
+    }))
+    .filter((p) => finiteLatLon(p.lat, p.lon) && p.time)
+    .sort((a, b) => a.time - b.time) : [];
+
+  if (!fullTrack.length) return data?.error ? { error: true } : { noTrack: true };
+
   for (const windowDays of windows) {
-    const start = dateOnly(addDays(sceneTime, -windowDays));
-    const end = dateOnly(addDays(sceneTime, windowDays + 1));
-    const key = `${vesselId}|${start}|${end}`;
-    let data = trackCache.get(key);
-    if (!data) {
-      const url = `http://127.0.0.1:5175/api/gfw/track?vessel_id=${encodeURIComponent(vesselId)}&start_date=${start}&end_date=${end}`;
-      try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
-        data = res.ok ? await res.json() : { error: `HTTP ${res.status}`, track: [] };
-      } catch (error) {
-        data = { error: error?.message || "fetch failed", track: [] };
-      }
-      trackCache.set(key, data);
-    }
-
-    const track = Array.isArray(data?.track) ? data.track
-      .map((p) => ({
-        ...p,
-        lat: number(p.lat),
-        lon: number(p.lon),
-        speed: number(p.speed),
-        course: number(p.course),
-        time: parseDate(p.timestamp),
-      }))
-      .filter((p) => finiteLatLon(p.lat, p.lon) && p.time)
-      .sort((a, b) => a.time - b.time) : [];
-
-    if (!track.length) {
-      if (data?.error) return { error: true };
-      continue;
-    }
+    const startMs = Date.parse(`${dateOnly(addDays(sceneTime, -windowDays))}T00:00:00Z`);
+    const endMs = Date.parse(`${dateOnly(addDays(sceneTime, windowDays + 1))}T00:00:00Z`);
+    const track = fullTrack.filter((p) => p.time >= startMs && p.time < endMs);
+    if (!track.length) continue;
 
     const nearest = nearestPoint(track, sceneTime);
     if (nearest && Number.isFinite(nearest.speed) && Number.isFinite(nearest.course)) {
@@ -201,6 +216,16 @@ async function lookupGfwTrack(vesselId, sceneTime) {
   return { noTrack: true };
 }
 
+async function fetchTrackData(vesselId, start, end) {
+  const url = `${API_BASE}/api/gfw/track?vessel_id=${encodeURIComponent(vesselId)}&start_date=${start}&end_date=${end}`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+    return res.ok ? await res.json() : { error: `HTTP ${res.status}`, track: [] };
+  } catch (error) {
+    return { error: error?.message || "fetch failed", track: [] };
+  }
+}
+
 function nearestPoint(track, sceneTime) {
   let best = null;
   let bestMs = Infinity;
@@ -218,14 +243,14 @@ function surroundingPair(track, sceneTime) {
   let before = null;
   let after = null;
   for (const p of track) {
-    if (p.time <= sceneTime) before = p;
-    if (p.time >= sceneTime) {
+    if (p.time < sceneTime) {
+      before = p;
+    } else {
       after = p;
       break;
     }
   }
-  if (before && after && before !== after) return { before, after };
-  return null;
+  return before && after ? { before, after } : null;
 }
 
 function parsePath(path) {
@@ -277,7 +302,12 @@ function parseCsv(text) {
     headers,
     rows: rows
       .filter((r) => r.some((cell) => cell.trim() !== ""))
-      .map((r) => Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ""]))),
+      .map((r, rowIndex) => {
+        if (r.length > headers.length) {
+          console.warn(`CSV baris data ${rowIndex + 1}: ${r.length} sel, header hanya ${headers.length}; sel kelebihan diabaikan.`);
+        }
+        return Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ""]));
+      }),
   };
 }
 

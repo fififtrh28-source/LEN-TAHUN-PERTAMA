@@ -30,7 +30,9 @@
       </div>
 
       <button class="onx-logout-button" type="button" data-onx-logout title="Sign out of Ocean Nexus (ends the login session)">Sign out</button>
-
+      <noscript>
+        <form method="post" action="/api/auth/logout"><button class="onx-logout-button" type="submit">Sign out</button></form>
+      </noscript>
       <div class="onx-topbar-spacer"></div>
 
       <button class="onx-icon-button" type="button" aria-label="Notifications">
@@ -79,12 +81,14 @@
     </aside>
 
     <main class="onx-main">
-      <div class="onx-page-head">
+      <noscript>
+        <p class="onx-panel" role="alert">JavaScript is required to load detection records and reports. Please enable JavaScript and reload the page.</p>
+      </noscript>      <div class="onx-page-head">
         <div>
           <p class="onx-kicker">Records Console</p>
           <h1>Data &amp; Reports</h1>
           <p>Explore detection data, analyze records, and generate official reports.</p>
-          <p class="onx-muted" id="data-source-note" style="font-size:13px"></p>
+          <p class="onx-muted onx-source-note" id="data-source-note"></p>          
         </div>
       </div>
 
@@ -118,7 +122,7 @@
         <div class="onx-field">
           <label for="filter-type">Anomaly Type</label>
           <select id="filter-type">
-            <option value="">Anomaly Type</option>
+            <option value="">Loading…</option>            
           </select>
         </div>
         <div class="onx-field">
@@ -133,7 +137,7 @@
         <div class="onx-field">
           <label for="filter-flag">Flag</label>
           <select id="filter-flag">
-            <option value="">Flag</option>
+            <option value="">Loading…</option>            
           </select>
         </div>
         <div class="onx-field">

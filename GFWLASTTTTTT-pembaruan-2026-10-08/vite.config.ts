@@ -6,16 +6,31 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// M-172: aturan baca .env disamakan dengan loadDotEnv di server/index.mjs: baris kosong dan baris komentar (#)
+// dilewati, dan tanda kutip pengapit ("nilai" atau 'nilai') dibuang. Dulu baris "# KUNCI=..." ikut menjadi variabel
+// bernama "# KUNCI", dan KUNCI="abc" terbaca lengkap dengan tanda kutipnya.
+export function parseDotEnv(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq < 1) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (/^(["']).*\1$/.test(value)) value = value.slice(1, -1);
+    if (key) out[key] = value;
+  }
+  return out;
+}
+
 function loadDotEnv() {
   for (const fileName of [".env", ".env.local"]) {
     const envFile = path.join(__dirname, fileName);
     if (!fs.existsSync(envFile)) continue;
-    for (const line of fs.readFileSync(envFile, "utf-8").split("\n")) {
-      const eq = line.indexOf("=");
-      if (eq < 1) continue;
-      const key = line.slice(0, eq).trim();
-      const val = line.slice(eq + 1).trim();
-      if (key && !(key in process.env)) process.env[key] = val;
+    // Nilai yang sudah ada di environment tidak ditimpa (sama seperti sebelumnya).
+    for (const [key, value] of Object.entries(parseDotEnv(fs.readFileSync(envFile, "utf-8")))) {
+      if (!(key in process.env)) process.env[key] = value;
     }
   }
 }
@@ -35,8 +50,10 @@ function resolveHandler(urlPath: string): string | null {
     path.resolve(apiDir, clean, "index.js"),
   ];
   const found = candidates.find(fs.existsSync);
-  // Pastikan path hasil resolve tetap berada di dalam folder api
-  if (found && (found.startsWith(apiDir + path.sep) || found === apiDir)) {
+  // Pastikan path hasil resolve tetap berada di dalam folder api.
+  // R-136: perbandingan "found === apiDir" dibuang: kandidat selalu berakhiran ".js" atau "index.js", jadi tidak
+  // mungkin sama dengan folder api itu sendiri (cabang itu tidak pernah tercapai).
+  if (found && found.startsWith(apiDir + path.sep)) {
     return found;
   }
   return null;
@@ -102,9 +119,17 @@ function vercelApiPlugin() {
       server.middlewares.use(async (req: IncomingMessage, res: ServerResponse, next: () => void) => {
         if (!req.url?.startsWith("/api/")) return next();
 
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+        // T-65 (kesepakatan #6): CORS hanya diberikan ke dashboard statis lokal di port 8000. Halaman dari origin lain
+        // tidak mendapat header Access-Control-Allow-Origin, sehingga browser tidak mengizinkannya membaca respons.
+        // Permintaan dari dev server sendiri (127.0.0.1:5174) satu origin, jadi tidak butuh header CORS.
+        const ALLOWED_ORIGINS = ["http://127.0.0.1:8000", "http://localhost:8000"];
+        const origin = req.headers.origin;
+        if (origin && ALLOWED_ORIGINS.includes(origin)) {
+          res.setHeader("Access-Control-Allow-Origin", origin);
+          res.setHeader("Vary", "Origin");
+          res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+          res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
+        }
         if (req.method === "OPTIONS") { res.statusCode = 204; return res.end(); }
 
         if (req.url.startsWith("/api/ais/")) {
@@ -132,7 +157,9 @@ function vercelApiPlugin() {
             let size = 0;
             req.on("data", (c: Buffer) => {
               size += c.length;
-              if (size > MAX_BODY_BYTES * 16) { req.destroy(); resolve(true); return; } // kiriman sangat besar: putus
+              // K-20: request tidak di-destroy di sini, supaya respons 413 masih bisa terkirim. Kiriman lebih dari 16 MB
+              // langsung dijawab 413 (sisa kiriman diabaikan); socket ditutup setelah respons selesai terkirim.
+              if (size > MAX_BODY_BYTES * 16) { resolve(true); return; }
               if (size > MAX_BODY_BYTES) return; // lewat 1 MB: sisa kiriman dibuang, tidak disimpan
               chunks.push(c);
             });
@@ -143,8 +170,11 @@ function vercelApiPlugin() {
             });
           });
           if (tooLarge) {
+            // K-20: respons 413 dikirim dulu sampai selesai; baru setelah itu socket ditutup (Connection: close).
             res.statusCode = 413;
             res.setHeader("Content-Type", "application/json");
+            res.setHeader("Connection", "close");
+            res.once("finish", () => req.destroy());
             return res.end(JSON.stringify({ error: "Request body terlalu besar (maksimal 1 MB)" }));
           }
         }
@@ -165,7 +195,12 @@ function vercelApiPlugin() {
             res.statusCode = this._status;
             res.end(JSON.stringify(data));
           },
-          end(body = "") { res.statusCode = this._status; res.end(body); },
+          // R-137: bila handler belum mengatur Content-Type, isi teks dikirim sebagai text/plain (dulu tanpa header sama sekali).
+          end(body = "") {
+            res.statusCode = this._status;
+            if (body && !res.getHeader("Content-Type")) res.setHeader("Content-Type", "text/plain; charset=utf-8");
+            res.end(body);
+          },
         };
 
         try {

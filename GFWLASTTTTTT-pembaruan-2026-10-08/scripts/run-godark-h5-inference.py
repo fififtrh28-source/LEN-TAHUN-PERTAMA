@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import math
 import warnings
 from pathlib import Path
 
@@ -66,7 +65,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--scene-metadata", type=Path, default=DEFAULT_SCENE_METADATA, help="Scene metadata CSV for joining scene fields.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Output prediction CSV.")
     parser.add_argument("--threshold", type=float, default=None, help="Override decision threshold. Default uses H5 root attr.")
-    parser.add_argument("--seq-len", type=int, default=120, help="Model sequence length.")
+    # T-45: bawaan None = ikut panjang urutan yang tersimpan di model; nilai lain harus sama dengan model.
+    parser.add_argument("--seq-len", type=int, default=None, help="Model sequence length (default: taken from the H5 model, normally 120).")
     parser.add_argument("--min-points", type=int, default=1, help="Minimum points per MMSI group to run.")
     parser.add_argument("--fishing-only", action="store_true", help="Keep only fishing vessels after joining scene metadata.")
     parser.add_argument(
@@ -311,7 +311,9 @@ class GoDarkNet(nn.Module):
         dropout = float(meta["dropout"])
         heads = int(meta.get("attention_heads", 4))
         layers = int(meta.get("attention_layers", 1))
-        self.seq_len = 120
+        # T-45: panjang urutan diambil dari metadata model (bawaan 120), bukan angka tetap, karena context_proj
+        # (LayerNorm/Linear) dibentuk dari nilai ini dan harus sama dengan panjang urutan input.
+        self.seq_len = int(meta.get("seq_len", 120))
         self.in_proj = nn.Sequential(nn.Linear(input_size, input_proj), nn.GELU(), nn.Dropout(dropout))
         self.lstm = nn.LSTM(
             input_proj,
@@ -371,6 +373,24 @@ def load_bundle(model_path: Path):
     return models, calibrator, threshold
 
 
+def resolve_seq_len(requested: int | None, models: list[dict]) -> int:
+    """T-45: pastikan --seq-len cocok dengan model; jika tidak, berhenti dengan pesan jelas (bukan shape mismatch)."""
+    model_lens = sorted({int(item["model"].seq_len) for item in models})
+    if not model_lens:
+        raise SystemExit("Error: file H5 tidak berisi model.")
+    if len(model_lens) > 1:
+        raise SystemExit(f"Error: model di ensemble memakai seq_len berbeda-beda ({model_lens}); file H5 tidak konsisten.")
+    model_len = model_lens[0]
+    if requested is None:
+        return model_len
+    if requested != model_len:
+        raise SystemExit(
+            f"Error: --seq-len {requested} tidak cocok dengan model ({model_len}). "
+            f"Arsitektur model tetap {model_len} langkah; jalankan tanpa --seq-len atau pakai --seq-len {model_len}."
+        )
+    return requested
+
+
 def calibrate_probs(probs: np.ndarray, calibrator) -> np.ndarray:
     if not calibrator:
         return probs
@@ -379,13 +399,30 @@ def calibrate_probs(probs: np.ndarray, calibrator) -> np.ndarray:
         return probs
     eps = 1e-6
     logit_p = np.log(np.clip(probs, eps, 1 - eps) / np.clip(1 - probs, eps, 1 - eps)).reshape(-1, 1)
+    # M-115: kalibrator Platt dilatih dengan log-odds. Bila cara itu gagal, jalur cadangan (probabilitas mentah, lalu
+    # tanpa kalibrasi) tetap dipakai seperti dulu, tetapi kini SELALU disertai peringatan beserta galat aslinya, supaya
+    # hasil yang domain masukannya hanya ditebak tidak terlihat seperti hasil kalibrasi yang benar.
+    # RuntimeWarning dipakai (bukan UserWarning) karena main() membungkam UserWarning.
     try:
         return estimator.predict_proba(logit_p)[:, 1]
-    except Exception:
+    except Exception as logit_err:
         try:
-            return estimator.predict_proba(probs.reshape(-1, 1))[:, 1]
-        except Exception:
+            calibrated = estimator.predict_proba(probs.reshape(-1, 1))[:, 1]
+        except Exception as prob_err:
+            warnings.warn(
+                f"Kalibrator GoDark gagal dipakai ({type(logit_err).__name__}: {logit_err}; "
+                f"cadangan {type(prob_err).__name__}: {prob_err}). Probabilitas TANPA kalibrasi yang dikeluarkan.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
             return probs
+        warnings.warn(
+            f"Kalibrator GoDark menolak masukan log-odds ({type(logit_err).__name__}: {logit_err}). "
+            "Dipakai cadangan: probabilitas mentah sebagai masukan kalibrator; domain masukan ini hanya DITEBAK.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return calibrated
 
 
 def run_inference(features: pd.DataFrame, models: list[dict], calibrator, seq_len: int, min_points: int) -> pd.DataFrame:
@@ -582,10 +619,11 @@ def main() -> None:
     model_path = choose_model(args.model)
     models, calibrator, model_threshold = load_bundle(model_path)
     threshold = args.threshold if args.threshold is not None else model_threshold
+    seq_len = resolve_seq_len(args.seq_len, models)  # T-45: dicek sebelum data diproses
 
     points = prepare_points(args.input)
     features = add_features(points)
-    pred = run_inference(features, models, calibrator, args.seq_len, args.min_points)
+    pred = run_inference(features, models, calibrator, seq_len, args.min_points)
     gear_reference = load_ais_gear_reference(args.gear_reference_dir)
     if not pred.empty:
         pred["threshold"] = threshold

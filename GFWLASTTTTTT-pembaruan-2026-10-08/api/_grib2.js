@@ -12,10 +12,14 @@ function s16(b, o) { const v = u16(b, o); return v & 0x8000 ? -(v & 0x7fff) : v;
 function s32(b, o) { const v = u32(b, o); return v >= 2147483648 ? -(v - 2147483648) : v; }
 function f32(b, o) { return new DataView(b.buffer, b.byteOffset + o, 4).getFloat32(0, false); }
 
-function bitReader(bytes, byteStart) {
+// M-009: pembaca bit dibatasi sampai akhir section data (byteEnd). Dulu pembacaan di luar batas diam-diam
+// menghasilkan 0 (atau byte section berikutnya), sehingga nilai angin salah tanpa ketahuan; sekarang dilempar error.
+function bitReader(bytes, byteStart, byteEnd = bytes.length) {
   let pos = byteStart * 8;
+  const endBits = Math.min(byteEnd, bytes.length) * 8;
   return {
     read(n) {
+      if (pos + n > endBits) throw new Error("GRIB2: data section terpotong");
       let v = 0;
       for (let i = 0; i < n; i++) {
         v = v * 2 + ((bytes[pos >> 3] >> (7 - (pos & 7))) & 1);
@@ -32,13 +36,13 @@ function bitReader(bytes, byteStart) {
   };
 }
 
-function unpack(bytes, dataStart, drs, n) {
+function unpack(bytes, dataStart, drs, n, dataEnd) {
   const ref = f32(drs.b, drs.o + 11);
   const bscale = Math.pow(2, s16(drs.b, drs.o + 15));
   const dscale = Math.pow(10, -s16(drs.b, drs.o + 17));
   const nbits = drs.b[drs.o + 19];
   const out = new Float32Array(n);
-  const r = bitReader(bytes, dataStart);
+  const r = bitReader(bytes, dataStart, dataEnd);
 
   if (drs.template === 0) {
     for (let i = 0; i < n; i++) out[i] = ((nbits ? r.read(nbits) : 0) * bscale + ref) * dscale;
@@ -100,12 +104,17 @@ export function decodeGrib2(bytes) {
     if (!(bytes[p] === 71 && bytes[p + 1] === 82 && bytes[p + 2] === 73 && bytes[p + 3] === 66)) { p++; continue; } // "GRIB"
     if (bytes[p + 7] !== 2) throw new Error("GRIB: bukan edisi 2");
     const end = p + u32(bytes, p + 8) * 4294967296 + u32(bytes, p + 12);
+    // T-03: pesan yang terpotong (unduhan tidak lengkap) ditolak, bukan dibaca sebagai nilai sampah.
+    if (end > bytes.length) throw new Error(`GRIB2: panjang pesan (${end - p} byte) melebihi data yang diterima (${bytes.length - p} byte)`);
     const m = {};
     let drs = null;
     let q = p + 16;
     while (q + 5 <= end - 4) {
       const len = u32(bytes, q);
       const sec = bytes[q + 4];
+      // T-04: panjang section minimal 5 byte (4 byte panjang + 1 byte nomor section) dan tidak boleh melewati akhir
+      // pesan; tanpa pemeriksaan ini, panjang 0 dari data rusak membuat loop berputar selamanya.
+      if (len < 5 || q + len > end) throw new Error(`GRIB2: panjang section ${sec} tidak valid (${len} byte)`);
       if (sec === 1) {
         m.refTime = new Date(Date.UTC(u16(bytes, q + 12), bytes[q + 14] - 1, bytes[q + 15], bytes[q + 16], bytes[q + 17], bytes[q + 18])).toISOString();
       } else if (sec === 3) {
@@ -129,7 +138,7 @@ export function decodeGrib2(bytes) {
         if (bytes[q + 5] !== 255) throw new Error("GRIB2: data ber-bitmap tidak didukung");
       } else if (sec === 7) {
         if (!drs) throw new Error("GRIB2: bagian 5 tidak ditemukan");
-        m.values = unpack(bytes, q + 5, drs, drs.points);
+        m.values = unpack(bytes, q + 5, drs, drs.points, q + len);
       }
       q += len;
     }

@@ -26,12 +26,25 @@ const CDN_CACHE_STALE = "public, max-age=60, s-maxage=300, stale-while-revalidat
 // 700 event terbaru di ZEE Indonesia dari ketiga jenis (sekitar 1,5–2 hari data GFW).
 const MAX_EVENTS = 700;
 
-function toIsoDate(date) {
-  return date.includes("T") ? date : `${date}T00:00:00Z`;
+// M-019: tanggal harus berformat YYYY-MM-DD dan benar-benar ada di kalender (misalnya 2026-02-30 ditolak).
+function parseDay(value, fallback) {
+  const text = value === undefined || value === "" ? fallback : String(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const ms = Date.parse(`${text}T00:00:00Z`);
+  if (!Number.isFinite(ms) || new Date(ms).toISOString().slice(0, 10) !== text) return null;
+  return text;
+}
+
+// T-09: GFW mengambil event SEBELUM endDate. Supaya event pada tanggal akhir ikut terambil (tanggal akhir inklusif),
+// endDate dikirim sebagai tengah malam hari berikutnya.
+function nextDayIso(day) {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString();
 }
 
 function cacheKey(start, end) {
-  return `gfw:events:idn-eez:v5:${MAX_EVENTS}:${start}:${end}:fishing-encounter-loitering`;
+  return `gfw:events:idn-eez:v6:${MAX_EVENTS}:${start}:${end}:fishing-encounter-loitering`;
 }
 
 // Event terbaru satu dataset di ZEE Indonesia.
@@ -47,8 +60,8 @@ async function fetchDataset(token, dataset, start, end) {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       datasets: [dataset],
-      startDate: toIsoDate(start),
-      endDate: toIsoDate(end),
+      startDate: `${start}T00:00:00Z`,
+      endDate: nextDayIso(end),
       region: INDONESIA_EEZ,
       vesselTypes: ["FISHING"],
     }),
@@ -70,13 +83,43 @@ function cacheEnvelope(payload) {
   };
 }
 
+// Hasil sebagian (ada dataset yang gagal, M-021) tidak dianggap segar, supaya permintaan berikutnya mencoba lagi;
+// hasil itu tetap tersimpan sebagai cadangan.
 function isFresh(entry) {
-  return entry?.payload && Date.now() - Number(entry.fetchedAt || 0) < FRESH_TTL_SECONDS * 1000;
+  return entry?.payload && !entry.partial && Date.now() - Number(entry.fetchedAt || 0) < FRESH_TTL_SECONDS * 1000;
+}
+
+// M-022: permintaan yang sama (kunci cache sama) yang datang bersamaan menunggu satu pengambilan GFW yang sama,
+// bukan masing-masing memanggil GFW 3 kali.
+const inflight = new Map();
+
+async function loadEvents(token, start, end, key) {
+  console.log(`[gfw] fetching ${start} -> ${end} ...`);
+  const t0 = Date.now();
+  // M-021: allSettled, supaya satu dataset yang gagal tidak membuang hasil dataset lain yang berhasil.
+  const results = await Promise.allSettled(GFW_EVENT_DATASETS.map((dataset) => fetchDataset(token, dataset, start, end)));
+  const failed = GFW_EVENT_DATASETS.filter((_, i) => results[i].status === "rejected");
+  if (failed.length === GFW_EVENT_DATASETS.length) throw results[0].reason;
+  const lists = results.filter((r) => r.status === "fulfilled").map((r) => r.value);
+  // Pengaman: apa pun jawaban GFW, yang diteruskan hanya event yang memang tercatat di ZEE Indonesia.
+  const data = lists.flat()
+    .filter((event) => (event?.regions?.eez ?? []).map(String).includes(INDONESIA_EEZ_ID))
+    .sort((x, y) => String(y.start).localeCompare(String(x.start)))
+    .slice(0, MAX_EVENTS);
+  console.log(`[gfw] OK - ${data.length} events (${Date.now() - t0}ms)${failed.length ? `, gagal: ${failed.join(", ")}` : ""}`);
+
+  const payload = { events: data };
+  if (failed.length) payload.warning = `Sebagian data GFW tidak terambil: ${failed.join(", ")}`;
+  await cacheSet(key, { ...cacheEnvelope(payload), partial: failed.length > 0 }, STALE_TTL_SECONDS);
+  return payload;
 }
 
 export default async function handler(req, res) {
-  const start = req.query.start_date || new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
-  const end = req.query.end_date || new Date().toISOString().slice(0, 10);
+  const start = parseDay(req.query.start_date, new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10));
+  const end = parseDay(req.query.end_date, new Date().toISOString().slice(0, 10));
+  if (!start || !end || start > end) {
+    return sendProblem(res, 400, "start_date dan end_date harus berformat YYYY-MM-DD, dan start_date tidak boleh setelah end_date.", { events: [] });
+  }
 
   const allowed = await applyRateLimit(req, res, {
     name: "gfw-events",
@@ -98,25 +141,20 @@ export default async function handler(req, res) {
     return res.json(payload);
   }
 
-  const token = gfwToken();
-  if (!token) return sendProblem(res, 500, "GFW_API_TOKEN not configured", { events: [] });
-
   try {
-    console.log(`[gfw] fetching ${start} -> ${end} ...`);
-    const t0 = Date.now();
+    // M-020: token kosong diperlakukan seperti kegagalan GFW lainnya, supaya data cadangan di cache tetap disajikan.
+    const token = gfwToken();
+    if (!token) throw new Error("GFW_API_TOKEN not configured");
 
-    const lists = await Promise.all(GFW_EVENT_DATASETS.map((dataset) => fetchDataset(token, dataset, start, end)));
-    // Pengaman: apa pun jawaban GFW, yang diteruskan hanya event yang memang tercatat di ZEE Indonesia.
-    const data = lists.flat()
-      .filter((event) => (event?.regions?.eez ?? []).map(String).includes(INDONESIA_EEZ_ID))
-      .sort((x, y) => String(y.start).localeCompare(String(x.start)))
-      .slice(0, MAX_EVENTS);
-    console.log(`[gfw] OK - ${data.length} events (${Date.now() - t0}ms)`);
-
-    const payload = { events: data };
-    await cacheSet(key, cacheEnvelope(payload), STALE_TTL_SECONDS);
+    let job = inflight.get(key);
+    if (!job) {
+      job = loadEvents(token, start, end, key).finally(() => inflight.delete(key));
+      inflight.set(key, job);
+    }
+    const payload = await job;
     res.setHeader("x-cache", "MISS");
-    res.setHeader("cache-control", CDN_CACHE);
+    // Hasil sebagian hanya disimpan CDN sebentar, supaya cepat diganti hasil lengkap.
+    res.setHeader("cache-control", payload.warning ? CDN_CACHE_STALE : CDN_CACHE);
     res.json(payload);
   } catch (e) {
     console.error("[gfw] catch:", e?.message);

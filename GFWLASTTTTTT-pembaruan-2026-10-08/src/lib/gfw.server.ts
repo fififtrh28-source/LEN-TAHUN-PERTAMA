@@ -13,10 +13,23 @@ const GFW_EVENT_DATASETS = [
 const GFW_TRACK_DATASET = "public-global-vessel-track:latest";
 const GFW_IDENTITY_DATASET = "public-global-vessel-identity:latest";
 
-const INDONESIA_POLY = {
-  type: "Polygon",
-  coordinates: [[[95.0, -11.0], [141.0, -11.0], [141.0, 6.0], [95.0, 6.0], [95.0, -11.0]]],
-};
+// M-157: dulu dipakai kotak lintang/bujur kasar (95–141 BT, 11 LS–6 LU) yang ikut mencakup perairan Malaysia,
+// Singapura, Filipina, Timor Leste, dan Papua Nugini. Sekarang memakai ZEE Indonesia dari GFW (id 8492 di dataset
+// public-eez-areas), sama dengan api/gfw/events.js yang sudah teruji dengan data GFW asli.
+// PENTING: GFW hanya menerapkan batas wilayah ini bila satu permintaan berisi SATU dataset, jadi tiap dataset diminta
+// sendiri-sendiri, lalu hasilnya disaring lagi dengan regions.eez sebagai pengaman.
+const INDONESIA_EEZ = { dataset: "public-eez-areas", id: 8492 };
+const INDONESIA_EEZ_ID = String(INDONESIA_EEZ.id);
+
+// R-118: batas untuk membedakan waktu dalam detik dan milidetik. 10.000.000.000 detik = tahun 2286, sedangkan
+// 10.000.000.000 milidetik = 26 April 1970. Angka di atas batas ini pasti milidetik, di bawahnya pasti detik
+// (untuk data AIS mana pun, yang semuanya sesudah 1970 dan sebelum 2286).
+const EPOCH_MS_THRESHOLD = 10_000_000_000;
+
+// M-158: batas limit pencarian dipakai sama untuk parameter API dan untuk jumlah hasil yang dikembalikan.
+const SEARCH_LIMIT_MIN = 1;
+const SEARCH_LIMIT_MAX = 50;
+const SEARCH_LIMIT_DEFAULT = 20;
 
 // C.4 (laporan audit): bentuk respons GFW API v3 ditulis sebagai tipe, bukan any. Semua kolom opsional karena
 // GFW tidak selalu mengirim semuanya; perubahan nama kolom di GFW kini terlihat saat pemeriksaan TypeScript.
@@ -80,10 +93,12 @@ export type GfwRawEvent = {
   end?: string;
   position?: { lat?: number; lon?: number };
   vessel?: { id?: string; ssvid?: string; flag?: string; name?: string };
+  regions?: { eez?: Array<string | number> };
 };
 
 type GfwEventsResponse = {
   entries?: GfwRawEvent[];
+  nextOffset?: number | null;
 };
 
 function authHeaders() {
@@ -107,14 +122,23 @@ function isCoordinateList(value: unknown): value is number[][] {
 
 function trackTimeToIso(time: GfwTrackTime | undefined): string | undefined {
   if (!time) return undefined;
-  if (typeof time === "number") return new Date(time * (time > 10_000_000_000 ? 1 : 1000)).toISOString();
+  if (typeof time === "number") return new Date(time * (time > EPOCH_MS_THRESHOLD ? 1 : 1000)).toISOString();
   return new Date(time).toISOString();
 }
 
-export async function searchVessels(query: string, limit = 20): Promise<VesselSearchResult[]> {
+function clampSearchLimit(limit: number): number {
+  const n = Math.trunc(limit);
+  if (!Number.isFinite(n)) return SEARCH_LIMIT_DEFAULT;
+  return Math.min(SEARCH_LIMIT_MAX, Math.max(SEARCH_LIMIT_MIN, n));
+}
+
+export async function searchVessels(query: string, limit = SEARCH_LIMIT_DEFAULT): Promise<VesselSearchResult[]> {
+  // M-158: dulu parameter API dibatasi 1–50 tetapi hasil dipotong dengan limit mentah, sehingga limit 0 atau negatif
+  // membuang semua/sebagian hasil dan limit > 50 tidak membatasi apa pun. Sekarang satu nilai dipakai untuk keduanya.
+  const safeLimit = clampSearchLimit(limit);
   const url = new URL(`${GFW_BASE}/vessels/search`);
   url.searchParams.set("query", query);
-  url.searchParams.set("limit", String(Math.min(50, Math.max(1, limit))));
+  url.searchParams.set("limit", String(safeLimit));
   url.searchParams.set("datasets[0]", GFW_IDENTITY_DATASET);
   url.searchParams.set("includes[0]", "MATCH_CRITERIA");
   url.searchParams.set("includes[1]", "OWNERSHIP");
@@ -122,7 +146,7 @@ export async function searchVessels(query: string, limit = 20): Promise<VesselSe
   if (!res.ok) throw new Error(`GFW search failed: ${res.status}`);
   const json: GfwSearchResponse = await res.json();
   const entries: GfwVesselEntry[] = json?.entries ?? json?.data ?? [];
-  return entries.slice(0, limit).map((e): VesselSearchResult => {
+  return entries.slice(0, safeLimit).map((e): VesselSearchResult => {
     const sd: GfwIdentityInfo = e?.selfReportedInfo?.[0] ?? e?.registryInfo?.[0] ?? e ?? {};
     return {
       vessel_id: e?.selfReportedInfo?.[0]?.id || e?.id || e?.vesselId || "",
@@ -145,6 +169,41 @@ function computeBounds(track: TrackPoint[]): TrackResponse["bounds"] {
     if (p.lon > maxLon) maxLon = p.lon;
   }
   return [[minLat, minLon], [maxLat, maxLon]];
+}
+
+const EVENTS_PAGE_SIZE = 200;
+const EVENTS_MAX_PAGES = 5; // T-63: paling banyak 5 halaman = 1.000 event per permintaan
+
+// T-63: ambil event per halaman (offset) sampai halaman tidak penuh atau GFW tidak memberi nextOffset, dengan batas
+// EVENTS_MAX_PAGES halaman. Bila batas tercapai, peringatan dicatat supaya data yang terpotong tidak hilang diam-diam.
+async function fetchEventPages(body: Record<string, unknown>, sort: string, label: string): Promise<GfwRawEvent[]> {
+  const all: GfwRawEvent[] = [];
+  for (let page = 0; page < EVENTS_MAX_PAGES; page++) {
+    const url = new URL(`${GFW_BASE}/events`);
+    url.searchParams.set("limit", String(EVENTS_PAGE_SIZE));
+    url.searchParams.set("offset", String(page * EVENTS_PAGE_SIZE));
+    url.searchParams.set("sort", sort);
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(GFW_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch((err: unknown) => {
+        console.warn(`[${label}] isi balasan galat GFW tidak bisa dibaca:`, err);
+        return "";
+      });
+      throw new Error(`GFW events failed: ${res.status} ${text.slice(0, 200)}`);
+    }
+    const json: GfwEventsResponse = await res.json();
+    const entries = json?.entries ?? [];
+    all.push(...entries);
+    const noNextPage = json?.nextOffset === undefined || json?.nextOffset === null;
+    if (entries.length < EVENTS_PAGE_SIZE || noNextPage) return all;
+  }
+  console.warn(`[${label}] hasil dipotong di ${EVENTS_MAX_PAGES * EVENTS_PAGE_SIZE} event (masih ada halaman berikutnya di GFW).`);
+  return all;
 }
 
 export async function getTrack(vesselId: string, startDate: string, endDate: string): Promise<TrackResponse> {
@@ -189,32 +248,25 @@ export async function getTrack(vesselId: string, startDate: string, endDate: str
   } else if (res.status === 404) {
     // Fallback: use event positions as track points
     source = "events";
-    const evUrl = new URL(`${GFW_BASE}/events`);
-    evUrl.searchParams.set("limit", "200");
-    evUrl.searchParams.set("offset", "0");
-    evUrl.searchParams.set("sort", "+start");
-    const evRes = await fetch(evUrl.toString(), {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({
+    // T-63: semua halaman event diambil (bukan hanya 200 pertama). Kalau GFW gagal, lintasan tetap kosong seperti dulu.
+    let entries: GfwRawEvent[] = [];
+    try {
+      entries = await fetchEventPages({
         datasets: GFW_EVENT_DATASETS,
         startDate: toIsoDate(startDate),
         endDate: toIsoDate(endDate),
         vessels: [vesselId],
-      }),
-      signal: AbortSignal.timeout(GFW_TIMEOUT_MS),
-    });
-    if (evRes.ok) {
-      const j: GfwEventsResponse = await evRes.json();
-      const entries: GfwRawEvent[] = j?.entries ?? [];
-      track = entries.map((e): TrackPoint => ({
-        lat: Number(e?.position?.lat),
-        lon: Number(e?.position?.lon),
-        timestamp: e?.start,
-        speed: undefined,
-        course: undefined,
-      })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+      }, "+start", "gfw-track");
+    } catch (err) {
+      console.warn("[gfw-track] event cadangan gagal diambil:", err);
     }
+    track = entries.map((e): TrackPoint => ({
+      lat: Number(e?.position?.lat),
+      lon: Number(e?.position?.lon),
+      timestamp: e?.start,
+      speed: undefined,
+      course: undefined,
+    })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
   } else {
     throw new Error(`GFW track failed: ${res.status}`);
   }
@@ -230,34 +282,21 @@ export async function getTrack(vesselId: string, startDate: string, endDate: str
   };
 }
 
-// Fetch fishing/encounter/loitering events for Indonesian waters
-// Matches server.py gfw_fetch() approach: one POST, all datasets, camelCase dates
+// Event fishing/encounter/loitering di ZEE Indonesia.
+// M-157: satu permintaan per dataset (lihat INDONESIA_EEZ di atas). Dataset yang gagal dicatat; bila semuanya gagal,
+// galat pertama diteruskan. T-63: tiap dataset diambil semua halamannya (maks. EVENTS_MAX_PAGES halaman).
 export async function getIndonesianEvents(startDate: string, endDate: string): Promise<GfwRawEvent[]> {
-  const url = new URL(`${GFW_BASE}/events`);
-  url.searchParams.set("limit", "200");
-  url.searchParams.set("offset", "0");
-  url.searchParams.set("sort", "-start");
-
-  const res = await fetch(url.toString(), {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({
-      datasets: GFW_EVENT_DATASETS,
-      startDate: toIsoDate(startDate),
-      endDate: toIsoDate(endDate),
-      geometry: INDONESIA_POLY,
-    }),
-    signal: AbortSignal.timeout(GFW_TIMEOUT_MS),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch((err: unknown) => {
-      console.warn("[gfw-events] isi balasan galat GFW tidak bisa dibaca:", err);
-      return "";
-    });
-    throw new Error(`GFW events failed: ${res.status} ${text.slice(0, 200)}`);
-  }
-
-  const json: GfwEventsResponse = await res.json();
-  return json?.entries ?? [];
+  const results = await Promise.allSettled(GFW_EVENT_DATASETS.map((dataset) => fetchEventPages({
+    datasets: [dataset],
+    startDate: toIsoDate(startDate),
+    endDate: toIsoDate(endDate),
+    region: INDONESIA_EEZ,
+  }, "-start", `gfw-events ${dataset}`)));
+  const failed = GFW_EVENT_DATASETS.filter((_, i) => results[i].status === "rejected");
+  if (failed.length === GFW_EVENT_DATASETS.length) throw (results[0] as PromiseRejectedResult).reason;
+  if (failed.length) console.warn(`[gfw-events] dataset gagal, hasil sebagian: ${failed.join(", ")}`);
+  return results
+    .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
+    .filter((e) => (e?.regions?.eez ?? []).map(String).includes(INDONESIA_EEZ_ID))
+    .sort((a, b) => String(b.start ?? "").localeCompare(String(a.start ?? "")));
 }

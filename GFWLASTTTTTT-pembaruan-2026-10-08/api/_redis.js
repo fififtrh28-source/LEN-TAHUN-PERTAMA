@@ -46,6 +46,9 @@ function sweepExpired(t) {
 }
 
 function getLocal(key) {
+  // M-012: penyapuan isi kedaluwarsa juga dijalankan saat membaca (tetap dibatasi paling cepat tiap 60 detik),
+  // supaya server yang hanya membaca cache tetap membersihkan isi lama yang tidak pernah diakses lagi.
+  sweepExpired(now());
   const entry = localStore.get(key);
   if (!entry) return null;
   if (entry.expiresAt && entry.expiresAt <= now()) {
@@ -144,9 +147,9 @@ export async function cacheGet(key) {
 }
 
 export async function cacheSet(key, value, ttlSeconds) {
+  let serialized;
   try {
-    const serialized = JSON.stringify(value);
-    setLocal(key, value, ttlSeconds, serialized.length * 2); // X-5: ukuran dari JSON yang sama, tidak dihitung dua kali
+    serialized = JSON.stringify(value);
     // K-6 (laporan audit, B.6): sama persis dengan "Rekomendasi Perbaikan" di PDF.
     // Lewatkan klausul EX jika TTL <= 0 (Redis menolak "EX 0").
     const cmd = ["SET", key, serialized];
@@ -154,26 +157,35 @@ export async function cacheSet(key, value, ttlSeconds) {
       cmd.push("EX", String(Math.floor(ttlSeconds)));
     }
     const { configured } = await pipeline([cmd]);
+    // M-013: salinan di memori hanya dibuat bila Redis tidak diatur atau gagal, supaya memori tidak terisi
+    // salinan yang tidak pernah dibaca saat Redis normal. X-5: ukuran dari JSON yang sama, tidak dihitung dua kali.
+    if (!configured) setLocal(key, value, ttlSeconds, serialized.length * 2);
     return configured;
   } catch (err) {
     console.warn(`[cache] Redis SET failed for ${key}:`, err?.message || err);
+    if (typeof serialized === "string") setLocal(key, value, ttlSeconds, serialized.length * 2);
     return false;
   }
 }
 
 export async function incrementWithTtl(key, ttlSeconds) {
-  const local = getLocal(key);
-  const nextLocal = Number(local || 0) + 1;
-  setLocal(key, nextLocal, ttlSeconds);
+  // K-09: penghitung lokal hanya dipakai bila Redis tidak diatur atau gagal.
+  // Bila Redis berhasil, nilai Redis disalin ke penghitung lokal supaya keduanya tetap sama.
+  const nextLocal = () => {
+    const value = Number(getLocal(key) || 0) + 1;
+    setLocal(key, value, ttlSeconds);
+    return value;
+  };
 
   try {
     const incr = await getCommand("incr", key);
-    if (!incr.configured) return nextLocal;
+    if (!incr.configured) return nextLocal();
     const count = Number(incr.result || 0);
     if (count === 1) await getCommand("expire", key, String(ttlSeconds));
+    setLocal(key, count, ttlSeconds);
     return count;
   } catch (err) {
     console.warn(`[rate-limit] Redis INCR failed for ${key}:`, err?.message || err);
-    return nextLocal;
+    return nextLocal();
   }
 }

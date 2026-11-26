@@ -322,9 +322,11 @@ def add_trajectory_pixels(traj: pd.DataFrame, transformer: GCPTransformer) -> pd
     return out
 
 
-def pixel_to_lonlat(transformer: GCPTransformer, x: float, y: float) -> tuple[float, float] | None:
+def pixel_to_lonlat(transformer: GCPTransformer, col: float, row: float) -> tuple[float, float] | None:
+    # GCPTransformer.xy menerima (rows, cols), sedangkan pemanggil mengirim (col, row) = (x, y) piksel.
+    # Urutan [row], [col] di bawah memang disengaja; jangan ditukar.
     try:
-        xs, ys = transformer.xy([y], [x])
+        xs, ys = transformer.xy([row], [col])
     except Exception:
         return None
     return float(xs[0]), float(ys[0])
@@ -985,13 +987,17 @@ def write_interactive_html(
       applyTransform();
     }}
 
+    function esc(value) {{
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({{"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}})[ch]);
+    }}
+
     function vesselTitle(v) {{
       return `${{v.name || "Unnamed vessel"}} (${{v.mmsi || "no MMSI"}})`;
     }}
 
     function vesselHtml(v) {{
-      const prob = v.probability == null ? "" : `<br>GoDark probability: ${{v.probability}}`;
-      return `<strong>${{vesselTitle(v)}}</strong><br>Event: ${{v.eventLabel}}<br>Category: ${{v.category || "-"}}<br>Gear: ${{v.gear || "-"}}${{prob}}<br>SAR: ${{v.sarLat?.toFixed?.(5) ?? "-"}}, ${{v.sarLon?.toFixed?.(5) ?? "-"}}`;
+      const prob = v.probability == null ? "" : `<br>GoDark probability: ${{esc(v.probability)}}`;
+      return `<strong>${{esc(vesselTitle(v))}}</strong><br>Event: ${{esc(v.eventLabel)}}<br>Category: ${{esc(v.category || "-")}}<br>Gear: ${{esc(v.gear || "-")}}${{prob}}<br>SAR: ${{v.sarLat?.toFixed?.(5) ?? "-"}}, ${{v.sarLon?.toFixed?.(5) ?? "-"}}`;    
     }}
 
     function polyline(points) {{
@@ -1065,9 +1071,8 @@ def write_interactive_html(
         const el = document.createElement("div");
         el.className = "vessel";
         el.dataset.mmsi = v.mmsi;
-        const prob = v.probability == null ? "" : ` &middot; p=${{v.probability}}`;
-        el.innerHTML = `<div class="name">${{vesselTitle(v)}}</div><span class="pill ${{v.event}}">${{v.eventLabel}}</span><div class="meta">${{v.category || "-"}} &middot; ${{v.gear || "unknown gear"}}${{prob}}</div>`;
-        el.addEventListener("click", () => setActive(v.mmsi));
+        const prob = v.probability == null ? "" : ` &middot; p=${{esc(v.probability)}}`;
+        el.innerHTML = `<div class="name">${{esc(vesselTitle(v))}}</div><span class="pill ${{esc(v.event)}}">${{esc(v.eventLabel)}}</span><div class="meta">${{esc(v.category || "-")}} &middot; ${{esc(v.gear || "unknown gear")}}${{prob}}</div>`;        el.addEventListener("click", () => setActive(v.mmsi));
         vesselList.appendChild(el);
       }});
     }}
@@ -1861,14 +1866,14 @@ def render_scene(zip_path: Path, args: argparse.Namespace) -> list[Path]:
                 kalman_valid = [(x, y) for x, y in kalman_pts if np.isfinite(x) and np.isfinite(y)]
 
                 if len(raw_valid) >= 2:
-                    xs, ys = zip(*raw_pts)
+                    xs, ys = zip(*raw_valid)                    
                     ax.plot(xs, ys, color="#00b7ff", linewidth=1.1, alpha=0.78, linestyle="--", zorder=3)
                     drew_raw_trajectory = True
                 elif len(raw_valid) == 1:
                     ax.scatter([raw_valid[0][0]], [raw_valid[0][1]], s=12, c="#00b7ff", edgecolors="black", linewidths=0.25, zorder=4)
 
                 if len(kalman_valid) >= 2:
-                    xs, ys = zip(*kalman_pts)
+                    xs, ys = zip(*kalman_valid)                    
                     ax.plot(xs, ys, color="#ffd21a", linewidth=1.25, alpha=0.88, zorder=4)
                     drew_kalman_trajectory = True
                 elif len(kalman_valid) == 1:

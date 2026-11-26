@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -22,7 +22,7 @@ const outputDir = resolve(
 );
 const sourceRenderer = resolve(
   args["source-renderer"] ??
-  "D:/FILE FIFI/GFW/GFWAISSAR-ai-test/scripts/build-ais-kalman-patches.mjs",
+  join(repoRoot, "scripts", "build-ais-kalman-patches.mjs"),
 );
 const sequenceLength = 25;
 const windowStride = positiveInteger(args["window-stride"], 0);
@@ -30,7 +30,11 @@ const multipleWindowsPerMmsi = windowStride > 0;
 const stagingDir = `${outputDir}.staging`;
 
 if (!existsSync(inputDir)) throw new Error(`Input directory does not exist: ${inputDir}`);
-if (!existsSync(sourceRenderer)) throw new Error(`Reference renderer does not exist: ${sourceRenderer}`);
+if (!existsSync(sourceRenderer)) {
+  throw new Error(
+    `Reference renderer does not exist: ${sourceRenderer}\nGunakan --source-renderer <path ke build-ais-kalman-patches.mjs>.`,
+  );
+}
 if (existsSync(outputDir) || existsSync(stagingDir)) {
   throw new Error(
     `Output or staging directory already exists.\nOutput: ${outputDir}\nStaging: ${stagingDir}`,
@@ -51,9 +55,9 @@ try {
       "--sequence-selection", "residual-window",
     );
   }
-  runNode(join(repoRoot, "scripts", "create-labeled-ais-trajectories.mjs"), stagingArgs);
   stagingCreated = true;
-
+  runNode(join(repoRoot, "scripts", "create-labeled-ais-trajectories.mjs"), stagingArgs);
+  
   const stagingCsv = join(stagingDir, "trajectory_points_raw_vs_kalman.csv");
   const { rows } = parseCsv(readFileSync(stagingCsv, "utf8"));
   const rowsByMmsi = groupBy(rows, (row) => String(row.mmsi ?? "").trim());
@@ -179,7 +183,11 @@ try {
     throw new Error(`Some rendered images do not contain exactly ${sequenceLength} points.`);
   }
 
-  writeFileSync(join(outputDir, "trajectory_gallery.html"), renderGallery(records), "utf8");
+  writeFileSync(
+    join(outputDir, "trajectory_gallery.html"),
+    renderGallery(records, { sequenceLength, source: relative(repoRoot, inputDir).replaceAll("\\", "/") }),
+    "utf8",
+  );  
   const report = [
     "REFERENCE-STYLE AIS VS KALMAN EXPORT",
     "",
@@ -202,7 +210,7 @@ try {
     const resolvedStaging = resolve(stagingDir);
     const resolvedInput = resolve(inputDir);
     const safeName = basename(resolvedStaging).endsWith(".staging");
-    const insideInput = resolvedStaging.startsWith(`${resolvedInput}\\`);
+    const insideInput = resolvedStaging.startsWith(`${resolvedInput}${sep}`);    
     if (!safeName || !insideInput) {
       throw new Error(`Refusing to remove unsafe staging directory: ${resolvedStaging}`);
     }
@@ -220,37 +228,69 @@ function runNode(script, scriptArgs, extraEnv = {}) {
   });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
-  if (result.status !== 0) {
-    const cause = result.error ? `\n${result.error.stack || result.error.message}` : "";
-    throw new Error(`Command failed (${result.status}): node ${script}${cause}`);
+  if (result.error) {
+    throw new Error(`Failed to start process: node ${script}\n${result.error.stack || result.error.message}`);
   }
+  if (result.status !== 0) {
+    throw new Error(`Command failed (exit ${result.status ?? result.signal}): node ${script}`);
+  }  
 }
 
-function renderGallery(records) {
-  const images = records
-    .toSorted(
-      (a, b) =>
-        String(a.gear).localeCompare(String(b.gear)) ||
-        String(a.mmsi).localeCompare(String(b.mmsi), undefined, { numeric: true }),
-    )
-    .map((record) => {
-      const src = `images/${basename(record.patch_image_file)}`;
-      return `  <img src="${escapeHtml(src)}" alt="MMSI ${escapeHtml(record.mmsi)}">`;
+function formatUtc(seconds) {
+  const date = new Date(Number(seconds) * 1000);
+  return Number.isNaN(date.getTime()) ? "?" : `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+function describeImage(record, sequenceLength) {
+  // R-047: alt deskriptif dari nama file (alat tangkap, MMSI, window waktu).
+  const match = /_start-(\d+)_end-(\d+)_/.exec(basename(String(record.patch_image_file ?? "")));
+  const gear = String(record.gear ?? "unknown gear").replaceAll("_", " ");
+  const window = match ? `, window ${formatUtc(match[1])} to ${formatUtc(match[2])}` : "";
+  return `AIS input vs Kalman residual plot, ${gear}, MMSI ${record.mmsi}${window}, ${sequenceLength} points`;
+}
+
+function renderGallery(records, { sequenceLength, source }) {
+  const sorted = records.toSorted(
+    (a, b) =>
+      String(a.gear).localeCompare(String(b.gear)) ||
+      String(a.mmsi).localeCompare(String(b.mmsi), undefined, { numeric: true }),
+  );
+  const groups = new Map();
+  for (const record of sorted) {
+    const key = String(record.mmsi);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(record);
+  }
+  // R-046: satu <section> per MMSI dengan content-visibility: auto, jadi grup di luar layar tidak dihitung tata letaknya.
+  const sections = [...groups]
+    .map(([mmsi, items]) => {
+      const images = items
+        .map((record) => {
+          const src = `images/${basename(record.patch_image_file)}`;
+          return `    <img loading="lazy" decoding="async" src="${escapeHtml(src)}" alt="${escapeHtml(describeImage(record, sequenceLength))}">`;
+        })
+        .join("\n");
+      return `  <section class="mmsi-group" aria-label="MMSI ${escapeHtml(mmsi)}, ${items.length} plot" style="contain-intrinsic-size: auto calc(${items.length} * 50vw)">\n${images}\n  </section>`;
     })
     .join("\n");
+  // M-068: judul memakai jumlah sebenarnya; 25 adalah titik per plot, bukan per MMSI.
+  const title = `AIS input vs Kalman - ${records.length} plot dari ${groups.size} MMSI (${sequenceLength} titik per plot)`;
+  // R-045: metadata pembuatan.
   return `<!doctype html>
+<!-- Generated: ${new Date().toISOString()} | Script: scripts/build-reference-style-25seq-per-mmsi.mjs | Source: ${source} | Images: ${records.length} | MMSI: ${groups.size} -->
 <html lang="id">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AIS input vs Kalman - 25 titik per MMSI</title>
+  <title>${escapeHtml(title)}</title>
   <style>
     html, body { margin: 0; background: #f8fbff; }
     img { display: block; width: 100%; height: auto; margin: 0; }
+    .mmsi-group { content-visibility: auto; }
   </style>
 </head>
 <body>
-${images}
+${sections}
 </body>
 </html>
 `;
@@ -307,8 +347,14 @@ function parseCsv(text) {
   const headers = records.shift() ?? [];
   return {
     headers,
-    rows: records.map((cells) =>
-      Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]))),
+    rows: records.map((cells, rowIndex) => {
+      if (cells.length !== headers.length) {
+        throw new Error(
+          `CSV data row ${rowIndex + 1} has ${cells.length} cells, expected ${headers.length}`,
+        );
+      }
+      return Object.fromEntries(headers.map((header, index) => [header, cells[index]]));
+    }),
   };
 }
 
@@ -364,8 +410,12 @@ function haversineM(lat1, lon1, lat2, lon2) {
   return radiusM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// decimals = presisi maksimum; nol di belakang koma dibuang (1.5000 -> 1.5, 100.000 -> 100)
 function formatNumber(input, decimals) {
-  return Number.isFinite(Number(input)) ? Number(input).toFixed(decimals).replace(/\.?0+$/, "") : "";
+  const value = Number(input);
+  if (!Number.isFinite(value)) return "";
+  const text = value.toFixed(decimals);
+  return text.includes(".") ? text.replace(/\.?0+$/, "") : text;
 }
 
 function escapeHtml(input) {

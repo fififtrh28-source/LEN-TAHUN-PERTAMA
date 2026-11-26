@@ -16,6 +16,7 @@ const STOPPED_KN = 0.5;
 const FLUSH_INTERVAL_MS = 5000;
 const PRUNE_INTERVAL_MS = 60 * 60_000;
 const STATS_TTL_MS = 30_000;
+const MAX_PENDING_POSITIONS = 50_000; // K-17: batas antrean saat database terus gagal, supaya memori tidak habis
 
 let db = null;
 let insertPosition = null;
@@ -24,9 +25,23 @@ let timers = [];
 let lastError = null;
 let dbFile = null;
 let statsCache = null;
+let fileMB = null;          // R-077: ukuran file database terakhir yang diketahui (MB), dibaca tanpa memblokir
+let fileSizeReading = null; // R-077: pembacaan ukuran yang sedang berjalan, supaya tidak menumpuk
 const pendingPositions = [];
 const pendingVessels = new Map();
 const lastStoredTs = new Map();
+
+// R-077: ukuran file dibaca dengan fs.promises.stat (tidak memblokir event loop relay AIS), lalu disimpan di fileMB.
+// stats() memakai nilai terakhir itu dan memicu pembacaan baru di latar belakang; selisihnya paling lama ±30 detik.
+function refreshFileSize() {
+  if (!dbFile || fileSizeReading) return fileSizeReading;
+  fileSizeReading = fs.promises
+    .stat(dbFile)
+    .then((s) => { fileMB = Math.round((s.size / 1048576) * 10) / 10; })
+    .catch((err) => { console.warn("[ais-history] ukuran file tidak terbaca:", err?.message || err); })
+    .finally(() => { fileSizeReading = null; });
+  return fileSizeReading;
+}
 
 function retentionDays() {
   const n = Number(process.env.AIS_HISTORY_DAYS);
@@ -82,9 +97,14 @@ export async function open() {
     for (const timer of timers) timer.unref?.();
     prune();
     identity.start(db);
+    await refreshFileSize(); // R-077: ukuran awal sudah ada sebelum stats() pertama dipanggil
     lastError = null;
     console.log(`[ais-history] menyimpan riwayat AIS ke ${dbFile} (${retentionDays()} hari)`);
   } catch (err) {
+    // T-47: timer yang sempat dibuat dihentikan dan database ditutup, supaya tidak ada interval yang bocor.
+    for (const timer of timers) clearInterval(timer);
+    timers = [];
+    try { db?.close(); } catch (closeErr) { console.warn("[ais-history] galat diabaikan:", closeErr?.message || closeErr); }
     db = null;
     lastError = err?.message || String(err);
     console.error("[ais-history] riwayat AIS tidak aktif:", lastError);
@@ -94,12 +114,19 @@ export async function open() {
 // Dipanggil relay setiap ada posisi baru; disimpan hanya jika jeda dari titik terakhir sudah cukup.
 export function recordPosition(ship, receivedAt) {
   if (!db) return;
+  // T-48: data cacat (MMSI bukan bilangan bulat positif, lintang/bujur bukan angka atau di luar batas) dibuang di sini,
+  // supaya tidak menggagalkan satu batch penyimpanan berisi posisi lain yang sah.
+  if (!Number.isInteger(ship?.mmsi) || ship.mmsi <= 0) return;
+  if (!Number.isFinite(ship.lat) || !Number.isFinite(ship.lon) || Math.abs(ship.lat) > 90 || Math.abs(ship.lon) > 180) return;
   const ts = Math.floor(receivedAt / 1000);
   const prev = lastStoredTs.get(ship.mmsi);
-  const minGap = ship.speed != null && ship.speed < STOPPED_KN ? STOPPED_INTERVAL_S : MOVING_INTERVAL_S;
-  if (prev != null && ts - prev < minGap) return;
+  // R-076: pemeriksaan kosong ditulis eksplisit (=== / !==), bukan != null.
+  const hasSpeed = ship.speed !== null && ship.speed !== undefined;
+  const minGap = hasSpeed && ship.speed < STOPPED_KN ? STOPPED_INTERVAL_S : MOVING_INTERVAL_S;
+  if (prev !== undefined && ts - prev < minGap) return;
   lastStoredTs.set(ship.mmsi, ts);
-  pendingPositions.push([ship.mmsi, ts, ship.lat, ship.lon, ship.speed, ship.course, ship.heading, ship.navStatus]);
+  // T-48: kolom opsional yang tidak ada disimpan sebagai NULL (undefined tidak bisa disimpan SQLite dan menggagalkan batch).
+  pendingPositions.push([ship.mmsi, ts, ship.lat, ship.lon, ship.speed ?? null, ship.course ?? null, ship.heading ?? null, ship.navStatus ?? null]);
   pendingVessels.set(ship.mmsi, ship);
 }
 
@@ -124,9 +151,18 @@ function flush() {
     db.exec("COMMIT");
     lastError = null;
   } catch (err) {
-    try { db.exec("ROLLBACK"); } catch (err) { console.warn("[ais-history] galat diabaikan:", err?.message || err); }
+    try { db.exec("ROLLBACK"); } catch (rollbackErr) { console.warn("[ais-history] galat diabaikan:", rollbackErr?.message || rollbackErr); }
+    // K-17: batch yang gagal dikembalikan ke antrean (di depan, urutan tetap) supaya dicoba lagi pada flush berikutnya,
+    // bukan hilang. Data kapal yang lebih baru (sudah masuk antrean lagi) tidak ditimpa data lama.
+    pendingPositions.unshift(...positions);
+    if (pendingPositions.length > MAX_PENDING_POSITIONS) {
+      const dropped = pendingPositions.length - MAX_PENDING_POSITIONS;
+      pendingPositions.splice(0, dropped);
+      console.warn(`[ais-history] antrean penuh, ${dropped} posisi tertua dibuang`);
+    }
+    for (const ship of vessels) if (!pendingVessels.has(ship.mmsi)) pendingVessels.set(ship.mmsi, ship);
     lastError = err?.message || String(err);
-    console.error("[ais-history] gagal menyimpan:", lastError);
+    console.error("[ais-history] gagal menyimpan, dicoba lagi:", lastError);
   }
 }
 
@@ -147,6 +183,7 @@ function prune() {
 export function stats() {
   if (!db) return { enabled: false, error: lastError };
   if (statsCache && Date.now() - statsCache.at < STATS_TTL_MS) return statsCache.value;
+  refreshFileSize(); // R-077: diperbarui di latar belakang, hasilnya dipakai pada ringkasan berikutnya
   try {
     const p = db.prepare("SELECT COUNT(*) AS n, MIN(ts) AS oldest, MAX(ts) AS newest FROM positions").get();
     const vessels = db.prepare("SELECT COUNT(DISTINCT mmsi) AS n FROM positions").get();
@@ -159,7 +196,7 @@ export function stats() {
       oldest: iso(p.oldest),
       newest: iso(p.newest),
       retentionDays: retentionDays(),
-      fileMB: Math.round((fs.statSync(dbFile).size / 1048576) * 10) / 10,
+      fileMB,
       identity: identity.stats(),
     };
     statsCache = { at: Date.now(), value };
@@ -176,4 +213,5 @@ export function close() {
   timers = [];
   try { db?.close(); } catch (err) { console.warn("[ais-history] galat diabaikan:", err?.message || err); }
   db = null;
+  fileMB = null;
 }

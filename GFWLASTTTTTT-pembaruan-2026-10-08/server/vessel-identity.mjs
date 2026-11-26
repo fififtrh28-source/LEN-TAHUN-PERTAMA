@@ -14,6 +14,9 @@ const BATCHES_PER_RUN = 5;
 const DAILY_REQUEST_LIMIT = 3000;
 const RECHECK_FOUND_S = 30 * 86400;
 const RECHECK_MISSING_S = 7 * 86400;
+// C-7: batas entri per permintaan pencarian. Bila jawaban GFW tepat sebanyak ini, mungkin masih ada entri yang
+// terpotong; hal itu dicatat sebagai peringatan, tidak lagi diam-diam.
+const SEARCH_LIMIT = 50;
 
 let db = null;
 let timer = null;
@@ -27,9 +30,18 @@ function isShipMmsi(mmsi) {
   return Number.isInteger(mmsi) && mmsi >= 200_000_000 && mmsi <= 799_999_999;
 }
 
+// M-128: entri tanpa yearTo (kosong/hilang/bukan angka) dianggap paling lama, supaya tidak "mengunci" pilihan.
+// Dulu Number(undefined) = NaN dan NaN > x selalu false, sehingga entri pertama tanpa yearTo tidak pernah tergantikan.
+function yearToOf(item) {
+  const v = item?.yearTo;
+  if (v === null || v === undefined || v === "") return -Infinity;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : -Infinity;
+}
+
 function latest(items) {
   if (!items?.length) return null;
-  return items.reduce((a, b) => (Number(b.yearTo) > Number(a.yearTo) ? b : a));
+  return items.reduce((a, b) => (yearToOf(b) > yearToOf(a) ? b : a));
 }
 
 // Ringkas satu entri hasil pencarian GFW menjadi baris identitas.
@@ -48,6 +60,9 @@ function summarize(entry) {
   };
 }
 
+// R-080: hari kuota dihitung per tanggal UTC (toISOString). Asumsinya kuota harian GFW juga direset pada 00:00 UTC.
+// Kalau GFW memakai batas hari lain, hitungan lokal bisa sedikit menyimpang; risikonya kecil karena batas lokal
+// 3.000/hari jauh di bawah batas GFW 50.000/hari.
 function budgetLeft() {
   const today = new Date().toISOString().slice(0, 10);
   if (today !== requestDay) {
@@ -61,11 +76,16 @@ async function lookupBatch(mmsis, token) {
   const url = new URL(GFW_SEARCH_URL);
   url.searchParams.set("datasets[0]", GFW_IDENTITY_DATASET);
   url.searchParams.set("where", mmsis.map((m) => `ssvid="${m}"`).join(" OR "));
-  url.searchParams.set("limit", "50");
-  requestsToday++;
+  url.searchParams.set("limit", String(SEARCH_LIMIT));
+  // M-129: kuota dihitung setelah GFW benar-benar menjawab. Timeout atau jaringan putus tidak menghabiskan kuota harian.
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30_000) });
+  requestsToday++;
   if (!res.ok) throw new Error(`GFW vessels/search ${res.status}`);
   const json = await res.json();
+  const count = json?.entries?.length ?? 0;
+  if (count >= SEARCH_LIMIT) {
+    console.warn(`[vessel-identity] jawaban GFW penuh (${count} entri untuk ${mmsis.length} MMSI); sebagian identitas mungkin terpotong`);
+  }
 
   // Satu MMSI bisa punya beberapa entri; pakai entri pertama yang punya jenis kapal.
   const found = new Map();
@@ -83,9 +103,13 @@ async function run() {
   const token = String(process.env.GFW_API_TOKEN || process.env.GFW_TOKEN || "").trim();
   if (!db || running || !token) return;
   running = true;
+  // T-51: koneksi disimpan di variabel lokal. Setelah setiap await dicek apakah stop() (atau start() dengan
+  // database lain) sudah dipanggil; jika ya, run() berhenti tanpa menulis apa pun ke koneksi yang sudah dilepas.
+  const conn = db;
+  const stillActive = () => db === conn;
   try {
     const now = Math.floor(Date.now() / 1000);
-    const todo = db.prepare(`
+    const todo = conn.prepare(`
       SELECT v.mmsi FROM vessels v
       LEFT JOIN vessel_identity i ON i.mmsi = v.mmsi
       WHERE i.mmsi IS NULL
@@ -98,7 +122,7 @@ async function run() {
       .filter(isShipMmsi)
       .slice(0, BATCH_SIZE * BATCHES_PER_RUN);
 
-    const save = db.prepare(`
+    const save = conn.prepare(`
       INSERT INTO vessel_identity (mmsi, checked_at, found, gfw_vessel_id, name, flag, shiptype, geartype, gear_source)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (mmsi) DO UPDATE SET
@@ -110,22 +134,25 @@ async function run() {
     for (let i = 0; i < todo.length && budgetLeft() > 0; i += BATCH_SIZE) {
       const batch = todo.slice(i, i + BATCH_SIZE);
       const found = await lookupBatch(batch, token);
+      if (!stillActive()) return;
       const checkedAt = Math.floor(Date.now() / 1000);
-      db.exec("BEGIN");
+      conn.exec("BEGIN");
       try {
         for (const mmsi of batch) {
           const info = found.get(mmsi);
           save.run(mmsi, checkedAt, info ? 1 : 0, info?.vesselId ?? null, info?.name ?? null, info?.flag ?? null,
             info?.shiptype ?? null, info?.geartype ?? null, info?.gearSource ?? null);
         }
-        db.exec("COMMIT");
+        conn.exec("COMMIT");
       } catch (err) {
-        db.exec("ROLLBACK");
+        // Rollback dilindungi supaya galat rollback tidak menutupi galat aslinya.
+        try { conn.exec("ROLLBACK"); } catch (rollbackErr) { console.warn("[vessel-identity] galat diabaikan:", rollbackErr?.message || rollbackErr); }
         throw err;
       }
     }
     lastError = null;
   } catch (err) {
+    if (!stillActive()) return; // galat dari koneksi yang sudah dihentikan tidak perlu dilaporkan
     lastError = err?.message || String(err);
     console.error("[vessel-identity]", lastError);
   } finally {
@@ -148,12 +175,15 @@ export function start(database) {
       geartype TEXT,
       gear_source TEXT
     );
-    CREATE VIEW IF NOT EXISTS fishing_vessels AS
+    -- M-130: view dibuat ulang supaya perbandingan jenis kapal tidak membedakan huruf besar-kecil
+    -- ('FISHING', 'Fishing', 'fishing' sama-sama terhitung). DROP dulu karena database lama sudah punya view versi lama.
+    DROP VIEW IF EXISTS fishing_vessels;
+    CREATE VIEW fishing_vessels AS
       SELECT v.mmsi, COALESCE(NULLIF(v.name, ''), i.name) AS name, v.ship_type AS ais_ship_type,
              i.shiptype AS gfw_shiptype, i.geartype AS gfw_geartype, i.gear_source AS gfw_gear_source,
              i.flag, v.last_seen
       FROM vessels v LEFT JOIN vessel_identity i ON i.mmsi = v.mmsi
-      WHERE v.ship_type = 30 OR i.shiptype = 'FISHING';
+      WHERE v.ship_type = 30 OR UPPER(i.shiptype) = 'FISHING';
   `);
   timer = setInterval(run, RUN_INTERVAL_MS);
   timer.unref?.();

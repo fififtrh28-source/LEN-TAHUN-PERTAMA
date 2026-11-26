@@ -41,7 +41,7 @@ def read_candidate_counts(path: Path, candidate_column: str) -> tuple[Counter[st
             raise ValueError(f"Column '{candidate_column}' not found in {path}. Available columns: {columns}")
 
         for row in reader:
-            label = str(row.get(candidate_column, "")).strip()
+            label = str(row.get(candidate_column) or "").strip()            
             if not label:
                 label = "(blank)"
             counts[label] += 1

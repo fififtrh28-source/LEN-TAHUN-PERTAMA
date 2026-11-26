@@ -280,8 +280,6 @@ def human_size(num_bytes: int | None) -> str:
         if value < 1024 or unit == "TB":
             return f"{value:.1f} {unit}"
         value /= 1024
-    return f"{num_bytes} B"
-
 
 def download_product(
     product: Product,
@@ -328,6 +326,14 @@ def download_product(
         # Server ignored Range; restart cleanly instead of appending duplicate bytes.
         resume_from = 0
         mode = "wb"
+    if resume_from > 0 and response.status_code == 206:
+        content_range = response.headers.get("Content-Range", "")
+        if not content_range.startswith(f"bytes {resume_from}-"):
+            response.close()
+            raise ProductError(
+                f"Content-Range tidak cocok untuk {product.filename}: "
+                f"diharapkan mulai byte {resume_from}, server mengirim '{content_range}'"
+            )
 
     if response.status_code not in (200, 206):
         text = ""
@@ -342,25 +348,26 @@ def download_product(
     downloaded = resume_from
     started_at = time.time()
     last_report = started_at
-    with part_path.open(mode + "") as handle:
-        for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
-            if not chunk:
-                continue
-            handle.write(chunk)
-            downloaded += len(chunk)
+    try:
+        with part_path.open(mode + "") as handle:
+            for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
+                if not chunk:
+                    continue
+                handle.write(chunk)
+                downloaded += len(chunk)
 
-            now = time.time()
-            if now - last_report >= PROGRESS_EVERY_SECONDS:
-                speed = (downloaded - resume_from) / max(now - started_at, 1)
-                print(
-                    f"  progress {product.filename}: {human_size(downloaded)}"
-                    f" / {human_size(product.expected_bytes)}"
-                    f" at {human_size(int(speed))}/s",
-                    flush=True,
-                )
-                last_report = now
-
-    response.close()
+                now = time.time()
+                if now - last_report >= PROGRESS_EVERY_SECONDS:
+                    speed = (downloaded - resume_from) / max(now - started_at, 1)
+                    print(
+                        f"  progress {product.filename}: {human_size(downloaded)}"
+                        f" / {human_size(product.expected_bytes)}"
+                        f" at {human_size(int(speed))}/s",
+                        flush=True,
+                    )
+                    last_report = now
+    finally:
+        response.close()
 
     local_size = part_path.stat().st_size
     if product.expected_bytes is not None and local_size != product.expected_bytes:
@@ -462,7 +469,8 @@ def main() -> int:
                         f"  {product.filename} | {human_size(product.expected_bytes)}"
                     )
                 else:
-                    assert session is not None
+                    if session is None:
+                        raise RuntimeError("Sesi ASF belum dibuat; tidak bisa mengunduh tanpa login.")
                     status, local_bytes = download_product(
                         product=product,
                         dest=args.dest,
